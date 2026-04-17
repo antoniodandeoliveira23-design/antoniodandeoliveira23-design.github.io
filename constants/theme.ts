@@ -1,38 +1,57 @@
-
-
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+export const CORES = {
+  background: '#1A0B2E',
+  backgroundCard: '#2D1B4E',
+  backgroundInput: '#1E1233',
+  roxo: '#6A32C9',
+  roxoClaro: '#8B5CF6',
+  roxoGradientStart: '#7C3AED',
+  roxoGradientEnd: '#5B21B6',
+  laranja: '#FF7A00',
+  laranjaClaro: '#FF9A33',
+  branco: '#FFFFFF',
+  cinzaClaro: '#A0A0B0',
+  cinza: '#666680',
+  preto: '#000000',
+  overlay: 'rgba(0,0,0,0.6)',
+  border: '#3D2B5E',
+  sucesso: '#22C55E',
+  erro: '#EF4444',
+};
 
-export const Colors = {
-  light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
-  },
-  dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
-  },
+export const SPACING = {
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+  xxl: 48,
+};
+
+export const RADIUS = {
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
+  full: 9999,
+};
+
+export const FONT_SIZE = {
+  xs: 12,
+  sm: 14,
+  md: 16,
+  lg: 18,
+  xl: 22,
+  xxl: 28,
+  hero: 36,
 };
 
 export const Fonts = Platform.select({
   ios: {
-    
     sans: 'system-ui',
-    
     serif: 'ui-serif',
-    
     rounded: 'ui-rounded',
-
     mono: 'ui-monospace',
   },
   default: {

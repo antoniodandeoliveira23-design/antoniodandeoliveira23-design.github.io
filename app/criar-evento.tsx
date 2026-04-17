@@ -1,0 +1,355 @@
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
+import { useEventos } from '@/contexts/EventosContext';
+import { validacaoSemantica } from '@/services/validacao-semantica';
+import type { CategoriaEvento } from '@/types';
+
+const CATEGORIAS: { value: CategoriaEvento; label: string; icon: string }[] = [
+  { value: 'musica', label: 'Música', icon: 'musical-notes' },
+  { value: 'teatro', label: 'Teatro', icon: 'film' },
+  { value: 'esporte', label: 'Esporte', icon: 'football' },
+  { value: 'educacao', label: 'Educação', icon: 'school' },
+  { value: 'feira', label: 'Feira', icon: 'storefront' },
+  { value: 'cultura', label: 'Cultura', icon: 'library' },
+  { value: 'gastronomia', label: 'Gastronomia', icon: 'restaurant' },
+  { value: 'negocios', label: 'Negócios', icon: 'briefcase' },
+  { value: 'religiao', label: 'Religião', icon: 'heart' },
+  { value: 'outro', label: 'Outro', icon: 'ellipsis-horizontal' },
+];
+
+export default function CriarEvento() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const { criarEvento } = useEventos();
+
+  const [nome, setNome] = useState('');
+  const [descricao, setDescricao] = useState('');
+  const [local, setLocal] = useState('');
+  const [categoria, setCategoria] = useState<CategoriaEvento>('outro');
+  const [dataInicio, setDataInicio] = useState('');
+  const [exclusivoMulheres, setExclusivoMulheres] = useState(false);
+  const [carregando, setCarregando] = useState(false);
+  const [erro, setErro] = useState('');
+  const [modalSucesso, setModalSucesso] = useState(false);
+
+  // R2: Modal de bloqueio comercial
+  const [modalBloqueio, setModalBloqueio] = useState(false);
+  const [termosComerciais, setTermosComerciais] = useState<string[]>([]);
+  // R7: Modal de conta Gov não verificada
+  const [modalGovNaoVerificado, setModalGovNaoVerificado] = useState(false);
+
+  const handleCriar = async () => {
+    setErro('');
+
+    if (!nome.trim() || !local.trim()) {
+      setErro('Preencha nome e endereço do evento.');
+      return;
+    }
+
+    // R7: Conta Gov precisa estar verificada antes de publicar
+    if (user?.tipo_conta === 'gov' && !user?.verificado) {
+      setModalGovNaoVerificado(true);
+      return;
+    }
+
+    // R1/R6: Validação semântica para PF e Gov (ambos não podem publicar conteúdo comercial)
+    if (user?.tipo_conta === 'pf' || user?.tipo_conta === 'gov') {
+      const textoCompleto = nome + ' ' + descricao;
+      const ehComercial = validacaoSemantica.detectarConteudoComercial(textoCompleto);
+
+      if (ehComercial) {
+        // R2: Bloqueio inteligente + modal educativo
+        const termos = validacaoSemantica.listarTermosEncontrados(textoCompleto);
+        setTermosComerciais(termos);
+        setModalBloqueio(true);
+        return;
+      }
+    }
+
+    setCarregando(true);
+    try {
+      // Coordenadas de Vilhena-RO como padrão (geocoding será integrado com Google Places futuramente)
+      const latitude = -12.7405 + (Math.random() * 0.01 - 0.005);
+      const longitude = -60.1458 + (Math.random() * 0.01 - 0.005);
+
+      const eventoCriado = await criarEvento(
+        {
+          nome: nome.trim(),
+          descricao: descricao.trim(),
+          local: local.trim(),
+          lat: latitude,
+          lng: longitude,
+          categoria,
+          data_inicio: dataInicio ? new Date(dataInicio).toISOString() : new Date().toISOString(),
+          exclusivo_mulheres: exclusivoMulheres,
+        },
+        user?.tipo_conta as 'pf' | 'pj' | 'gov' | undefined,
+        user?.verificado,
+      );
+
+      if (user?.tipo_conta === 'pj') {
+        // R3: PJ precisa pagar -> redirecionar para tela de pagamento
+        router.replace({
+          pathname: '/pagamento',
+          params: { eventoId: eventoCriado?.id || 'novo', eventoNome: nome.trim() },
+        });
+      } else {
+        setModalSucesso(true);
+      }
+    } catch (e: any) {
+      if (e.message === 'BLOQUEIO_COMERCIAL') {
+        setModalBloqueio(true);
+      } else {
+        setErro(e.message || 'Erro ao criar evento.');
+      }
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color={CORES.branco} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Criar Evento</Text>
+          <View style={{ width: 24 }} />
+        </View>
+
+        {/* Tipo de conta badge */}
+        {user?.tipo_conta === 'pj' && (
+          <View style={styles.badge}>
+            <MaterialCommunityIcons name="office-building" size={14} color={CORES.laranja} />
+            <Text style={styles.badgeText}>Evento Comercial (PJ)</Text>
+          </View>
+        )}
+
+        {/* Form */}
+        <Text style={styles.label}>Nome do evento</Text>
+        <View style={styles.inputWrapper}>
+          <TextInput style={styles.input} placeholder="Ex: Festival de Música" placeholderTextColor={CORES.cinza} value={nome} onChangeText={setNome} />
+        </View>
+
+        <Text style={styles.label}>Descrição</Text>
+        <View style={[styles.inputWrapper, { height: 100, alignItems: 'flex-start', paddingTop: 12 }]}>
+          <TextInput style={[styles.input, { textAlignVertical: 'top' }]} placeholder="Descreva o evento..." placeholderTextColor={CORES.cinza} value={descricao} onChangeText={setDescricao} multiline />
+        </View>
+
+        <Text style={styles.label}>Endereço</Text>
+        <View style={styles.inputWrapper}>
+          <Ionicons name="location-outline" size={18} color={CORES.cinza} style={styles.inputIcon} />
+          <TextInput style={styles.input} placeholder="Av. Brasil, 123 - Vilhena, RO" placeholderTextColor={CORES.cinza} value={local} onChangeText={setLocal} />
+        </View>
+
+        <Text style={styles.label}>Data e hora</Text>
+        {Platform.OS === 'web' ? (
+          <View style={styles.inputWrapper}>
+            <Ionicons name="calendar-outline" size={18} color={CORES.cinza} style={styles.inputIcon} />
+            <input
+              type="datetime-local"
+              value={dataInicio}
+              onChange={(e: any) => setDataInicio(e.target.value)}
+              style={{
+                flex: 1,
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                color: '#FFFFFF',
+                fontSize: 14,
+                fontFamily: 'inherit',
+                colorScheme: 'dark',
+              }}
+            />
+          </View>
+        ) : (
+          <View style={styles.inputWrapper}>
+            <Ionicons name="calendar-outline" size={18} color={CORES.cinza} style={styles.inputIcon} />
+            <TextInput style={styles.input} placeholder="DD/MM/AAAA HH:MM" placeholderTextColor={CORES.cinza} value={dataInicio} onChangeText={setDataInicio} />
+          </View>
+        )}
+
+        {/* Categoria */}
+        <Text style={styles.label}>Categoria</Text>
+        <View style={styles.catGrid}>
+          {CATEGORIAS.map((cat) => (
+            <TouchableOpacity
+              key={cat.value}
+              style={[styles.catChip, categoria === cat.value && styles.catChipAtivo]}
+              onPress={() => setCategoria(cat.value)}
+            >
+              <Ionicons name={cat.icon as any} size={16} color={categoria === cat.value ? CORES.laranja : CORES.cinza} />
+              <Text style={[styles.catChipText, categoria === cat.value && styles.catChipTextAtivo]}>
+                {cat.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* R9: Exclusivo mulheres */}
+        <View style={styles.switchRow}>
+          <View style={styles.switchInfo}>
+            <Text style={styles.switchLabel}>Exclusivo para mulheres</Text>
+            <Text style={styles.switchDesc}>Evento visível apenas para usuárias femininas.</Text>
+          </View>
+          <Switch
+            value={exclusivoMulheres}
+            onValueChange={setExclusivoMulheres}
+            trackColor={{ false: CORES.border, true: CORES.roxo }}
+            thumbColor={exclusivoMulheres ? CORES.laranja : CORES.cinza}
+          />
+        </View>
+
+        {erro ? <Text style={styles.erroText}>{erro}</Text> : null}
+
+        <TouchableOpacity style={[styles.ctaBtn, carregando && styles.ctaBtnDisabled]} onPress={handleCriar} disabled={carregando}>
+          {carregando ? (
+            <ActivityIndicator color={CORES.branco} />
+          ) : (
+            <Text style={styles.ctaBtnText}>
+              {user?.tipo_conta === 'pj' ? 'Criar e Pagar' : 'Publicar Evento'}
+            </Text>
+          )}
+        </TouchableOpacity>
+      </ScrollView>
+
+      {/* ==================== R2: Modal de Bloqueio Comercial ==================== */}
+      <Modal visible={modalBloqueio} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Ionicons name="alert-circle" size={48} color={CORES.laranja} />
+            <Text style={styles.modalTitulo}>Conteúdo comercial detectado</Text>
+            <Text style={styles.modalTexto}>
+              {user?.tipo_conta === 'gov'
+                ? 'Identificamos linguagem comercial. Contas Governamentais só podem divulgar eventos públicos, não comerciais.'
+                : 'Identificamos linguagem comercial no seu evento. Contas de Pessoa Física não podem publicar conteúdo comercial.'}
+            </Text>
+
+            {termosComerciais.length > 0 && (
+              <View style={styles.termosBox}>
+                <Text style={styles.termosLabel}>Termos detectados:</Text>
+                <Text style={styles.termosLista}>{termosComerciais.join(', ')}</Text>
+              </View>
+            )}
+
+            {user?.tipo_conta === 'gov' ? (
+              <Text style={styles.modalTexto}>
+                Remova termos comerciais do seu evento ou use uma conta Empresarial (PJ) para divulgar conteúdo comercial.
+              </Text>
+            ) : (
+              <>
+                <Text style={styles.modalTexto}>
+                  Para divulgar eventos comerciais, crie uma conta Empresarial (PJ).
+                </Text>
+                <TouchableOpacity style={styles.ctaBtn} onPress={() => { setModalBloqueio(false); router.push('/register'); }}>
+                  <Text style={styles.ctaBtnText}>Criar conta Empresarial</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
+            <TouchableOpacity style={styles.modalFechar} onPress={() => setModalBloqueio(false)}>
+              <Text style={styles.modalFecharText}>Editar meu evento</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ==================== Modal de Sucesso ==================== */}
+      <Modal visible={modalSucesso} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Ionicons name="checkmark-circle" size={56} color={CORES.sucesso} />
+            <Text style={styles.modalTitulo}>Evento publicado!</Text>
+            <Text style={styles.modalTexto}>
+              Seu evento já está visível no mapa para todos os usuários da região.
+            </Text>
+            <TouchableOpacity style={[styles.ctaBtn, { backgroundColor: CORES.sucesso }]} onPress={() => { setModalSucesso(false); router.back(); }}>
+              <Text style={styles.ctaBtnText}>Voltar ao início</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ==================== R7: Modal Gov não verificado ==================== */}
+      <Modal visible={modalGovNaoVerificado} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Ionicons name="shield-checkmark-outline" size={48} color={CORES.laranja} />
+            <Text style={styles.modalTitulo}>Conta não verificada</Text>
+            <Text style={styles.modalTexto}>
+              Contas Governamentais precisam passar por um processo de verificação antes de publicar eventos.
+            </Text>
+            <Text style={styles.modalTexto}>
+              Nossa equipe irá validar seu vínculo institucional. Você receberá uma notificação quando a verificação for concluída.
+            </Text>
+            <TouchableOpacity style={styles.ctaBtn} onPress={() => setModalGovNaoVerificado(false)}>
+              <Text style={styles.ctaBtnText}>Entendi</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: CORES.background },
+  scroll: { flexGrow: 1, paddingHorizontal: SPACING.lg, paddingTop: 50, paddingBottom: 40 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.xl },
+  headerTitle: { fontSize: FONT_SIZE.xl, fontWeight: 'bold', color: CORES.branco },
+  badge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs, gap: 6, marginBottom: SPACING.lg },
+  badgeText: { color: CORES.laranja, fontSize: FONT_SIZE.xs, fontWeight: '600' },
+
+  label: { color: CORES.branco, fontSize: FONT_SIZE.sm, fontWeight: '600', marginBottom: SPACING.xs },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: CORES.backgroundInput, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.md, height: 48, marginBottom: SPACING.md },
+  inputIcon: { marginRight: SPACING.sm },
+  input: { flex: 1, color: CORES.branco, fontSize: FONT_SIZE.sm },
+
+  // Categorias
+  catGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginBottom: SPACING.lg },
+  catChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderWidth: 1, borderColor: 'transparent' },
+  catChipAtivo: { borderColor: CORES.laranja },
+  catChipText: { color: CORES.cinza, fontSize: FONT_SIZE.xs },
+  catChipTextAtivo: { color: CORES.laranja },
+
+  // Switch R9
+  switchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.md, padding: SPACING.md, marginBottom: SPACING.lg },
+  switchInfo: { flex: 1 },
+  switchLabel: { color: CORES.branco, fontSize: FONT_SIZE.sm, fontWeight: '600' },
+  switchDesc: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.xs, marginTop: 4 },
+
+  erroText: { color: CORES.erro, fontSize: FONT_SIZE.xs, marginBottom: SPACING.sm },
+
+  ctaBtn: { paddingVertical: 14, backgroundColor: CORES.roxo, borderRadius: RADIUS.sm, alignItems: 'center', marginTop: SPACING.sm },
+  ctaBtnDisabled: { opacity: 0.6 },
+  ctaBtnText: { color: CORES.branco, fontSize: FONT_SIZE.md, fontWeight: 'bold' },
+
+  // Modal R2
+  modalOverlay: { flex: 1, backgroundColor: CORES.overlay, justifyContent: 'center', padding: SPACING.lg },
+  modalContent: { backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.xl, padding: SPACING.xl, alignItems: 'center' },
+  modalTitulo: { color: CORES.branco, fontSize: FONT_SIZE.xl, fontWeight: 'bold', textAlign: 'center', marginTop: SPACING.md, marginBottom: SPACING.md },
+  modalTexto: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm, textAlign: 'center', lineHeight: 22, marginBottom: SPACING.md },
+  termosBox: { backgroundColor: CORES.background, borderRadius: RADIUS.sm, padding: SPACING.md, width: '100%', marginBottom: SPACING.md },
+  termosLabel: { color: CORES.laranja, fontSize: FONT_SIZE.xs, fontWeight: '600', marginBottom: 4 },
+  termosLista: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.xs },
+  modalFechar: { marginTop: SPACING.sm },
+  modalFecharText: { color: CORES.roxoClaro, fontSize: FONT_SIZE.sm, fontWeight: '600' },
+});

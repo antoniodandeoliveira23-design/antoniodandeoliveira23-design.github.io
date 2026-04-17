@@ -1,211 +1,539 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
-import React, { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
-  Dimensions,
-  FlatList,
+  Linking,
   Modal,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
+import { useEventos } from '@/contexts/EventosContext';
+import ModalDenuncia from '@/components/ModalDenuncia';
+import MapaInterativo from '@/components/MapaInterativo';
+import { produtosService } from '@/services/produtos';
+import type { Evento, CategoriaEvento, FiltroTemporal, Produto } from '@/types';
 
-const CORES = {
-  principal: '#6A32C9',
-  background: '#1A0B2E',
-  card: '#2D1B4E',
-  destaque: '#FF7A00',
-  texto: '#FFFFFF',
-  preto: '#000000'
+const ICON_MAP: Record<string, string> = {
+  musica: 'musical-notes',
+  teatro: 'film',
+  esporte: 'football',
+  educacao: 'school',
+  feira: 'storefront',
+  cultura: 'library',
+  gastronomia: 'restaurant',
+  negocios: 'briefcase',
+  religiao: 'heart',
+  governo: 'flag',
+  outro: 'ellipsis-horizontal',
 };
 
-export default function App() {
-  const [etapa, setEtapa] = useState('SPLASH');
+// Categorias alinhadas ao fluxograma
+const FILTROS: { value: CategoriaEvento | null; label: string; icon: string }[] = [
+  { value: null, label: 'Todos', icon: 'apps' },
+  { value: 'cultura', label: 'Eventos sociais', icon: 'people' },
+  { value: 'musica', label: 'Cultura e lazer', icon: 'musical-notes' },
+  { value: 'gastronomia', label: 'Gastronomia', icon: 'restaurant' },
+  { value: 'esporte', label: 'Esporte e bem-estar', icon: 'fitness' },
+  { value: 'governo', label: 'Eventos públicos', icon: 'flag' },
+  { value: 'educacao', label: 'Educação profissional', icon: 'school' },
+  { value: 'feira', label: 'Feiras', icon: 'storefront' },
+  { value: 'negocios', label: 'Negócios', icon: 'briefcase' },
+];
+
+// Filtros temporais do fluxograma (Hoje, Semana, Mês, Semestre)
+const FILTROS_TEMPO: { value: FiltroTemporal; label: string; icon: string }[] = [
+  { value: 'hoje', label: 'Hoje', icon: 'today' },
+  { value: 'semana', label: 'Semana', icon: 'calendar' },
+  { value: 'mes', label: 'Mês', icon: 'calendar-outline' },
+  { value: 'semestre', label: 'Semestre', icon: 'time' },
+];
+
+export default function HomeScreen() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const { eventos, loading, carregarEventos, buscarEventos, filtroCategoria, filtrarPorCategoria, favoritos, favoritarEvento, desfavoritarEvento } = useEventos();
+
+  const [busca, setBusca] = useState('');
+  const [filtroTempo, setFiltroTempo] = useState<FiltroTemporal>('semana');
+  const [eventoSelecionado, setEventoSelecionado] = useState<Evento | null>(null);
   const [modalVisivel, setModalVisivel] = useState(false);
-  const [itemSelecionado, setItemSelecionado] = useState<any>(null);
-  const [carregando, setCarregando] = useState(false);
-  
-  const [dadosGlobais, setDadosGlobais] = useState<any[]>([
-    { id: '1', nome: 'Exemplo Vilhena', local: 'Vilhena, RO', lat: -12.7405, lng: -60.1458 },
-  ]);
+  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [inscritos, setInscritos] = useState<Set<string>>(new Set());
 
-  const [nomeTemp, setNomeTemp] = useState('');
-  const [localTemp, setLocalTemp] = useState('');
+  // R8: Denúncia
+  const [denunciaVisivel, setDenunciaVisivel] = useState(false);
+  const [denunciaAlvoId, setDenunciaAlvoId] = useState('');
 
-  const cadastrarNovoItem = async () => {
-    if (!nomeTemp || !localTemp) return Alert.alert("Erro", "Preencha o nome e o endereço.");
-    
-    setCarregando(true);
-    try {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Erro', 'Permissão de localização negada.');
-        return;
-      }
+  useEffect(() => {
+    carregarEventos();
+  }, [filtroCategoria]);
 
-      const resultado = await Location.geocodeAsync(localTemp);
-      
-      if (resultado && resultado.length > 0) {
-        const { latitude, longitude } = resultado[0];
-        const novo = {
-          id: Math.random().toString(),
-          nome: nomeTemp,
-          local: localTemp,
-          lat: latitude,
-          lng: longitude
-        };
-        setDadosGlobais([...dadosGlobais, novo]);
-        setNomeTemp(''); setLocalTemp('');
-        setEtapa('PF_HOME');
-      } else {
-        Alert.alert("Erro", "Endereço não encontrado.");
-      }
-    } catch (e) {
-      Alert.alert("Erro", "Falha na geolocalização.");
-    } finally {
-      setCarregando(false);
+  useEffect(() => {
+    produtosService.listar().then(setProdutos);
+  }, []);
+
+  const handleBusca = () => {
+    buscarEventos(busca);
+  };
+
+  const abrirEvento = (evento: Evento) => {
+    setEventoSelecionado(evento);
+    setModalVisivel(true);
+  };
+
+  const abrirDenuncia = (eventoId: string) => {
+    setDenunciaAlvoId(eventoId);
+    setModalVisivel(false);
+    setDenunciaVisivel(true);
+  };
+
+  const abrirDirecoes = (evento: Evento) => {
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${evento.lat},${evento.lng}`;
+    Linking.openURL(url);
+  };
+
+  const compartilharEvento = (evento: Evento) => {
+    const texto = `${evento.nome} - ${evento.local}\n${new Date(evento.data_inicio).toLocaleDateString('pt-BR')}\nVeja no AGORA!`;
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.share) {
+      navigator.share({ title: evento.nome, text: texto }).catch(() => {});
+    } else if (Platform.OS === 'web' && typeof navigator !== 'undefined') {
+      navigator.clipboard?.writeText(texto);
     }
   };
 
-  // --- COMPONENTES DE TELA ---
+  const toggleInscricao = (eventoId: string) => {
+    setInscritos(prev => {
+      const next = new Set(prev);
+      if (next.has(eventoId)) next.delete(eventoId);
+      else next.add(eventoId);
+      return next;
+    });
+  };
 
-  if (etapa === 'SPLASH') return (
-    <View style={styles.containerCenter}>
-      <Text style={styles.logoTexto}>AGORA</Text>
-      <TouchableOpacity style={styles.btnLaranja} onPress={() => setEtapa('SELECAO')}>
-        <Text style={styles.btnTexto}>INICIAR</Text>
-      </TouchableOpacity>
-    </View>
-  );
+  // Filtrar por período temporal (fluxograma: Hoje, Semana, Mês, Semestre)
+  const filtrarPorTempo = (evento: Evento): boolean => {
+    const agora = new Date();
+    const dataEvento = new Date(evento.data_inicio);
+    const diffMs = dataEvento.getTime() - agora.getTime();
+    const diffDias = diffMs / (1000 * 60 * 60 * 24);
 
-  if (etapa === 'SELECAO') return (
-    <View style={styles.container}>
-      <Text style={styles.titulo}>ESCOLHA SEU PERFIL</Text>
-      <TouchableOpacity style={styles.cardOpcao} onPress={() => setEtapa('PF_HOME')}>
-        <Ionicons name="person" size={30} color={CORES.principal} />
-        <Text style={styles.cardTexto}>SOU PESSOA FÍSICA</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.cardOpcao} onPress={() => setEtapa('PJ_ADD')}>
-        <MaterialCommunityIcons name="office-building" size={30} color={CORES.principal} />
-        <Text style={styles.cardTexto}>SOU UMA EMPRESA</Text>
-      </TouchableOpacity>
-    </View>
-  );
+    switch (filtroTempo) {
+      case 'hoje': return diffDias >= -1 && diffDias <= 1;
+      case 'semana': return diffDias >= -1 && diffDias <= 7;
+      case 'mes': return diffDias >= -1 && diffDias <= 30;
+      case 'semestre': return diffDias >= -1 && diffDias <= 180;
+      default: return true;
+    }
+  };
 
-  if (etapa === 'PJ_ADD') return (
-    <View style={styles.container}>
-      <Text style={styles.voltar} onPress={() => setEtapa('SELECAO')}>{"< Voltar"}</Text>
-      <TextInput style={styles.input} placeholder="Nome do Evento" placeholderTextColor="#666" value={nomeTemp} onChangeText={setNomeTemp} />
-      <TextInput style={styles.input} placeholder="Endereço (Ex: Av. Brasil, Vilhena)" placeholderTextColor="#666" value={localTemp} onChangeText={setLocalTemp} />
-      <TouchableOpacity style={styles.btnLaranja} onPress={cadastrarNovoItem} disabled={carregando}>
-        {carregando ? <ActivityIndicator color="#000" /> : <Text style={styles.btnTexto}>PUBLICAR EVENTO</Text>}
-      </TouchableOpacity>
-    </View>
-  );
+  // R9 + filtro temporal
+  const eventosFiltrados = eventos.filter((ev) => {
+    if (ev.exclusivo_mulheres && user?.genero !== 'feminino') return false;
+    if (!filtrarPorTempo(ev)) return false;
+    return true;
+  });
 
-  if (etapa === 'PF_HOME') return (
-    <View style={styles.container}>
-      <Text style={styles.voltar} onPress={() => setEtapa('SELECAO')}>{"< Sair"}</Text>
-      <Text style={styles.tituloEventos}>Eventos de hoje</Text>
-
-      {/* MAPA NA TELA PRINCIPAL */}
-      <View style={styles.mapaContainer}>
-        {Platform.OS !== 'web' ? (
-          <MapView 
-            style={styles.mapaFixo} 
-            initialRegion={{ latitude: -12.7405, longitude: -60.1458, latitudeDelta: 0.1, longitudeDelta: 0.1 }}
+  const renderEventCard = ({ item }: { item: Evento }) => {
+    const isFav = favoritos.includes(item.id);
+    return (
+      <TouchableOpacity style={styles.eventCard} onPress={() => abrirEvento(item)}>
+        <View style={styles.eventCardTop}>
+          <View style={styles.eventIconCircle}>
+            <Ionicons name={(ICON_MAP[item.categoria] || 'calendar') as any} size={20} color={CORES.laranja} />
+          </View>
+          <TouchableOpacity
+            style={styles.favBtn}
+            onPress={() => isFav ? desfavoritarEvento(item.id) : favoritarEvento(item.id)}
           >
-            {dadosGlobais.map(item => (
-              <Marker key={item.id} coordinate={{ latitude: item.lat, longitude: item.lng }} title={item.nome} />
-            ))}
-          </MapView>
-        ) : (
-          <View style={styles.placeholderMapa}><Text style={styles.textoBranco}>Mapa disponível apenas no Celular</Text></View>
-        )}
-      </View>
-
-      <FlatList
-        data={dadosGlobais}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.itemCard} onPress={() => { setItemSelecionado(item); setModalVisivel(true); }}>
-            <Text style={styles.itemNome}>{item.nome}</Text>
-            <Ionicons name="ellipsis-vertical" size={24} color="black" />
+            <Ionicons name={isFav ? 'heart' : 'heart-outline'} size={18} color={isFav ? CORES.erro : CORES.cinza} />
           </TouchableOpacity>
+        </View>
+        <Text style={styles.eventCardName} numberOfLines={2}>{item.nome}</Text>
+        <View style={styles.eventCardInfoRow}>
+          <Ionicons name="location-outline" size={12} color={CORES.cinzaClaro} />
+          <Text style={styles.eventCardLocal} numberOfLines={1}>{item.local}</Text>
+        </View>
+        <View style={styles.eventCardInfoRow}>
+          <Ionicons name="calendar-outline" size={12} color={CORES.laranja} />
+          <Text style={styles.eventCardDate}>
+            {new Date(item.data_inicio).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+          </Text>
+        </View>
+        {item.destaque && (
+          <View style={styles.destaqueBadge}>
+            <Ionicons name="star" size={10} color={CORES.laranja} />
+            <Text style={styles.destaqueText}>Destaque</Text>
+          </View>
         )}
-      />
+      </TouchableOpacity>
+    );
+  };
 
-      {/* MODAL COM MAPA */}
-      <Modal visible={modalVisivel} transparent animationType="slide">
+  return (
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.logoBox}>
+            <Text style={styles.logoText}>A</Text>
+          </View>
+          <View style={styles.headerRight}>
+            <TouchableOpacity style={styles.headerBtn} onPress={() => router.push('/notificacoes')}>
+              <Ionicons name="notifications-outline" size={22} color={CORES.branco} />
+              <View style={styles.notifBadge} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Busca */}
+        <View style={styles.searchWrapper}>
+          <Ionicons name="search" size={18} color={CORES.cinza} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar eventos ou lugares..."
+            placeholderTextColor={CORES.cinza}
+            value={busca}
+            onChangeText={setBusca}
+            onSubmitEditing={handleBusca}
+            returnKeyType="search"
+          />
+        </View>
+
+        {/* Filtros de categoria - scroll horizontal */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtrosScroll} contentContainerStyle={styles.filtrosContent}>
+          {FILTROS.map((f) => (
+            <TouchableOpacity
+              key={f.label}
+              style={[styles.filtroChip, filtroCategoria === f.value && styles.filtroChipAtivo]}
+              onPress={() => filtrarPorCategoria(f.value)}
+            >
+              <Ionicons name={f.icon as any} size={14} color={filtroCategoria === f.value ? CORES.branco : CORES.cinza} />
+              <Text style={[styles.filtroChipText, filtroCategoria === f.value && styles.filtroChipTextAtivo]}>{f.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* Filtros temporais (Hoje, Semana, Mês, Semestre) */}
+        <View style={styles.tempoRow}>
+          {FILTROS_TEMPO.map((ft) => (
+            <TouchableOpacity
+              key={ft.value}
+              style={[styles.tempoChip, filtroTempo === ft.value && styles.tempoChipAtivo]}
+              onPress={() => setFiltroTempo(ft.value)}
+            >
+              <Ionicons name={ft.icon as any} size={14} color={filtroTempo === ft.value ? CORES.branco : CORES.cinzaClaro} />
+              <Text style={[styles.tempoText, filtroTempo === ft.value && styles.tempoTextAtivo]}>{ft.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Mapa interativo */}
+        <View style={styles.mapArea}>
+          <MapaInterativo
+            eventos={eventosFiltrados}
+            onEventoPress={(evento) => abrirEvento(evento)}
+          />
+          <View style={styles.mapOverlay}>
+            <Text style={styles.mapBadge}>{eventosFiltrados.length} eventos</Text>
+          </View>
+        </View>
+
+        {/* Eventos section */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Próximos eventos</Text>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/eventos')}>
+            <Text style={styles.sectionLink}>Ver todos</Text>
+          </TouchableOpacity>
+        </View>
+
+        {loading ? (
+          <ActivityIndicator size="large" color={CORES.roxo} style={{ marginTop: SPACING.lg }} />
+        ) : eventosFiltrados.length === 0 ? (
+          <Text style={styles.emptyText}>Nenhum evento encontrado.</Text>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.eventList}>
+            {eventosFiltrados.map((item) => (
+              <View key={item.id}>
+                {renderEventCard({ item })}
+              </View>
+            ))}
+          </ScrollView>
+        )}
+
+        {/* Produtos da região */}
+        {produtos.length > 0 && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Produtos</Text>
+              <TouchableOpacity onPress={() => router.push('/produtos')}>
+                <Text style={styles.sectionLink}>Ver todos</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.eventList}>
+              {produtos.slice(0, 5).map((prod) => (
+                <TouchableOpacity key={prod.id} style={styles.prodCard} onPress={() => router.push('/produtos')}>
+                  <View style={styles.prodIconCircle}>
+                    <Ionicons name="bag-handle" size={20} color={CORES.laranja} />
+                  </View>
+                  <Text style={styles.prodNome} numberOfLines={2}>{prod.nome}</Text>
+                  <Text style={styles.prodLocal} numberOfLines={1}>{prod.local}</Text>
+                  <Text style={styles.prodPreco}>R$ {prod.preco.toFixed(2).replace('.', ',')}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </>
+        )}
+      </ScrollView>
+
+      {/* FAB Criar evento */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => router.push('/criar-evento')}
+        testID="fab-criar"
+        accessibilityRole="button"
+      >
+        <Ionicons name="add" size={28} color={CORES.branco} />
+      </TouchableOpacity>
+
+      {/* Modal Evento - Detalhe completo */}
+      <Modal visible={modalVisivel} transparent animationType="slide" onRequestClose={() => setModalVisivel(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            {itemSelecionado && (
+            {eventoSelecionado && (
               <>
-                <Text style={styles.modalTitulo}>{itemSelecionado.nome}</Text>
-                <Text style={styles.modalLocalTexto}>{itemSelecionado.local}</Text>
-                <View style={styles.mapaDetalheContainer}>
-                  {Platform.OS !== 'web' ? (
-                    <MapView 
-                      style={styles.mapaDetalhe} 
-                      region={{ latitude: itemSelecionado.lat, longitude: itemSelecionado.lng, latitudeDelta: 0.01, longitudeDelta: 0.01 }}
+                {/* Hero com ícone da categoria */}
+                <View style={styles.modalHero}>
+                  <View style={styles.modalHeroIcon}>
+                    <Ionicons
+                      name={(ICON_MAP[eventoSelecionado.categoria] || 'calendar') as any}
+                      size={32}
+                      color={CORES.laranja}
+                    />
+                  </View>
+                  {eventoSelecionado.destaque && (
+                    <View style={styles.heroDestaque}>
+                      <Ionicons name="star" size={12} color={CORES.laranja} />
+                      <Text style={styles.heroDestaqueText}>Destaque</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Título + ações */}
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitulo} numberOfLines={2}>{eventoSelecionado.nome}</Text>
+                  <View style={styles.headerActions}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (favoritos.includes(eventoSelecionado.id)) {
+                          desfavoritarEvento(eventoSelecionado.id);
+                        } else {
+                          favoritarEvento(eventoSelecionado.id);
+                        }
+                      }}
+                      style={styles.headerActionBtn}
                     >
-                      <Marker coordinate={{ latitude: itemSelecionado.lat, longitude: itemSelecionado.lng }} />
-                    </MapView>
-                  ) : (
-                    <View style={styles.placeholderMapa}><Text style={styles.textoBranco}>Mapa indisponível na Web</Text></View>
+                      <Ionicons
+                        name={favoritos.includes(eventoSelecionado.id) ? 'heart' : 'heart-outline'}
+                        size={20}
+                        color={favoritos.includes(eventoSelecionado.id) ? CORES.erro : CORES.cinzaClaro}
+                      />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => abrirDenuncia(eventoSelecionado.id)} style={styles.headerActionBtn}>
+                      <Ionicons name="flag-outline" size={18} color={CORES.erro} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Info rows */}
+                <View style={styles.infoRow}>
+                  <Ionicons name="location-outline" size={16} color={CORES.roxoClaro} />
+                  <Text style={styles.infoText} numberOfLines={1}>{eventoSelecionado.local}</Text>
+                </View>
+
+                <View style={styles.infoRow}>
+                  <Ionicons name="calendar-outline" size={16} color={CORES.roxoClaro} />
+                  <Text style={styles.infoText}>
+                    {new Date(eventoSelecionado.data_inicio).toLocaleDateString('pt-BR', {
+                      weekday: 'short', day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit',
+                    })}
+                  </Text>
+                </View>
+
+                {eventoSelecionado.exclusivo_mulheres && (
+                  <View style={styles.infoRow}>
+                    <Ionicons name="female" size={16} color={CORES.laranja} />
+                    <Text style={[styles.infoText, { color: CORES.laranja }]}>Exclusivo para mulheres</Text>
+                  </View>
+                )}
+
+                {eventoSelecionado.descricao ? (
+                  <Text style={styles.modalDesc}>{eventoSelecionado.descricao}</Text>
+                ) : null}
+
+                {/* Badges */}
+                <View style={styles.badgeRow}>
+                  <View style={styles.catBadge}>
+                    <Text style={styles.catBadgeText}>{eventoSelecionado.categoria.toUpperCase()}</Text>
+                  </View>
+                  {eventoSelecionado.comercial && (
+                    <View style={styles.comercialBadge}>
+                      <Text style={styles.comercialText}>Comercial</Text>
+                    </View>
                   )}
                 </View>
               </>
             )}
-            <TouchableOpacity style={styles.btnLaranja} onPress={() => setModalVisivel(false)}>
-              <Text style={styles.btnTexto}>FECHAR</Text>
-            </TouchableOpacity>
+
+            {/* Share + Actions */}
+            <View style={styles.actionRow}>
+              <TouchableOpacity style={styles.actionCircle} onPress={() => eventoSelecionado && compartilharEvento(eventoSelecionado)}>
+                <Ionicons name="share-social" size={18} color={CORES.roxoClaro} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionCircle} onPress={() => eventoSelecionado && abrirDirecoes(eventoSelecionado)}>
+                <Ionicons name="navigate" size={18} color={CORES.roxoClaro} />
+              </TouchableOpacity>
+            </View>
+
+            {/* CTA row */}
+            <View style={styles.ctaRow}>
+              <TouchableOpacity style={styles.ctaSecundario} onPress={() => setModalVisivel(false)}>
+                <Text style={styles.ctaSecundarioText}>Fechar</Text>
+              </TouchableOpacity>
+              {eventoSelecionado && (
+                <TouchableOpacity
+                  style={[styles.ctaBtn, inscritos.has(eventoSelecionado.id) && styles.ctaBtnInscrito]}
+                  onPress={() => toggleInscricao(eventoSelecionado.id)}
+                >
+                  <Ionicons
+                    name={inscritos.has(eventoSelecionado.id) ? 'checkmark-circle' : 'ticket'}
+                    size={16}
+                    color={CORES.branco}
+                  />
+                  <Text style={styles.ctaBtnText}>
+                    {inscritos.has(eventoSelecionado.id) ? 'Inscrito' : 'Participar'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
       </Modal>
 
-      <View style={styles.tabBar}>
-           <View style={styles.tabItem}><Ionicons name="heart" size={24} color="black" /><Text style={styles.tabText}>favoritos</Text></View>
-           <View style={styles.tabItem}><Ionicons name="home" size={24} color="black" /><Text style={styles.tabText}>home</Text></View>
-           <View style={styles.tabItem}><Ionicons name="chatbubble" size={24} color="black" /><Text style={styles.tabText}>mensagens</Text></View>
-      </View>
+      {/* R8: Modal Denúncia */}
+      <ModalDenuncia
+        visivel={denunciaVisivel}
+        onFechar={() => setDenunciaVisivel(false)}
+        tipo="evento"
+        alvoId={denunciaAlvoId}
+      />
     </View>
   );
-
-  return null;
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: CORES.background, padding: 20, paddingTop: 50 },
-  containerCenter: { flex: 1, backgroundColor: CORES.background, justifyContent: 'center', alignItems: 'center' },
-  logoTexto: { fontSize: 40, color: '#FFF', fontWeight: 'bold', marginBottom: 20 },
-  titulo: { color: '#FFF', marginBottom: 20, textAlign: 'center' },
-  tituloEventos: { color: CORES.principal, fontSize: 32, fontWeight: 'bold', marginBottom: 15 },
-  btnLaranja: { backgroundColor: CORES.destaque, padding: 15, borderRadius: 25, alignItems: 'center', width: '100%', marginTop: 10 },
-  btnTexto: { color: '#000', fontWeight: 'bold' },
-  cardOpcao: { borderColor: CORES.principal, borderWidth: 2, borderRadius: 15, padding: 20, marginBottom: 10, flexDirection: 'row', alignItems: 'center' },
-  cardTexto: { color: '#FFF', marginLeft: 15, fontWeight: 'bold' },
-  input: { backgroundColor: CORES.card, borderRadius: 10, padding: 15, color: '#FFF', marginBottom: 10 },
-  mapaContainer: { height: 180, width: '100%', borderRadius: 15, overflow: 'hidden', marginBottom: 20 },
-  mapaFixo: { flex: 1 },
-  placeholderMapa: { flex: 1, backgroundColor: CORES.card, justifyContent: 'center', alignItems: 'center' },
-  textoBranco: { color: '#FFF' },
-  itemCard: { backgroundColor: CORES.principal, padding: 25, borderRadius: 35, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  itemNome: { color: '#000', fontSize: 24, fontWeight: 'bold' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 20 },
-  modalContent: { backgroundColor: CORES.card, borderRadius: 20, padding: 20 },
-  modalTitulo: { color: '#FFF', fontSize: 22, fontWeight: 'bold', textAlign: 'center' },
-  modalLocalTexto: { color: '#CCC', textAlign: 'center', marginBottom: 10 },
-  mapaDetalheContainer: { width: '100%', height: 250, borderRadius: 15, overflow: 'hidden', marginBottom: 15 },
-  mapaDetalhe: { flex: 1 },
-  tabBar: { flexDirection: 'row', justifyContent: 'space-around', backgroundColor: CORES.destaque, padding: 10, position: 'absolute', bottom: 0, width: Dimensions.get('window').width, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
-  tabItem: { alignItems: 'center' },
-  tabText: { fontSize: 12, fontWeight: 'bold' },
-  voltar: { color: '#FFF', marginBottom: 15 }
+  container: { flex: 1, backgroundColor: CORES.background },
+  scrollContainer: { flex: 1 },
+  scrollContent: { paddingBottom: 100 },
+
+  // Header
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: Platform.OS === 'web' ? 16 : 50, paddingHorizontal: SPACING.lg, paddingBottom: SPACING.sm },
+  logoBox: { width: 40, height: 40, backgroundColor: CORES.preto, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  logoText: { fontSize: 20, fontWeight: 'bold', color: CORES.branco },
+  headerRight: { flexDirection: 'row', gap: SPACING.sm },
+  headerBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: CORES.backgroundCard, justifyContent: 'center', alignItems: 'center', position: 'relative' },
+  notifBadge: { position: 'absolute', top: 8, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: CORES.laranja },
+
+  // Search
+  searchWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, marginHorizontal: SPACING.lg, height: 44, gap: SPACING.sm, marginBottom: SPACING.sm },
+  searchInput: { flex: 1, color: CORES.branco, fontSize: FONT_SIZE.sm },
+
+  // Filtros
+  filtrosScroll: { maxHeight: 44, marginBottom: SPACING.sm },
+  filtrosContent: { paddingHorizontal: SPACING.lg, gap: SPACING.sm },
+  filtroChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, height: 36 },
+  filtroChipAtivo: { backgroundColor: CORES.roxo },
+  filtroChipText: { color: CORES.cinza, fontSize: FONT_SIZE.xs },
+  filtroChipTextAtivo: { color: CORES.branco },
+
+  // Filtros temporais
+  tempoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, marginBottom: SPACING.sm, gap: SPACING.xs },
+  tempoChip: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.sm, paddingVertical: 8, borderWidth: 1, borderColor: 'transparent' },
+  tempoChipAtivo: { backgroundColor: CORES.roxo, borderColor: CORES.roxoClaro },
+  tempoText: { color: CORES.cinzaClaro, fontSize: 11, fontWeight: '600' },
+  tempoTextAtivo: { color: CORES.branco },
+
+  // Map
+  mapArea: { marginHorizontal: SPACING.lg, height: 280, borderRadius: RADIUS.lg, marginBottom: SPACING.md, position: 'relative', overflow: 'hidden' },
+  mapOverlay: { position: 'absolute', top: SPACING.sm, left: SPACING.sm, zIndex: 1000 },
+  mapBadge: { backgroundColor: CORES.backgroundCard + 'DD', color: CORES.branco, fontSize: FONT_SIZE.xs, fontWeight: '600', paddingHorizontal: SPACING.md, paddingVertical: 4, borderRadius: RADIUS.full, overflow: 'hidden' },
+
+  // Section
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.lg, marginBottom: SPACING.sm },
+  sectionTitle: { color: CORES.branco, fontSize: FONT_SIZE.lg, fontWeight: 'bold' },
+  sectionLink: { color: CORES.roxoClaro, fontSize: FONT_SIZE.sm },
+
+  // Event cards
+  eventList: { paddingHorizontal: SPACING.lg, gap: SPACING.md, paddingBottom: SPACING.sm },
+  eventCard: { backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.lg, padding: SPACING.md, width: 170 },
+  eventCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: SPACING.sm },
+  eventIconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: CORES.background, justifyContent: 'center', alignItems: 'center' },
+  favBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: CORES.background, justifyContent: 'center', alignItems: 'center' },
+  eventCardName: { color: CORES.branco, fontSize: FONT_SIZE.sm, fontWeight: 'bold', marginBottom: 6 },
+  eventCardInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 3 },
+  eventCardLocal: { color: CORES.cinzaClaro, fontSize: 11, flex: 1 },
+  eventCardDate: { color: CORES.laranja, fontSize: 11, fontWeight: '600' },
+  destaqueBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6, alignSelf: 'flex-start', backgroundColor: CORES.background, borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3 },
+  destaqueText: { color: CORES.laranja, fontSize: 10, fontWeight: '600' },
+  emptyText: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm, paddingHorizontal: SPACING.lg },
+
+  // Product cards
+  prodCard: { backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.lg, padding: SPACING.md, width: 150 },
+  prodIconCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: CORES.background, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.sm },
+  prodNome: { color: CORES.branco, fontSize: FONT_SIZE.xs, fontWeight: 'bold', marginBottom: 4 },
+  prodLocal: { color: CORES.cinzaClaro, fontSize: 10, marginBottom: 6 },
+  prodPreco: { color: CORES.laranja, fontSize: FONT_SIZE.sm, fontWeight: 'bold' },
+
+  // FAB
+  fab: { position: 'absolute', right: SPACING.lg, bottom: Platform.OS === 'web' ? 80 : 100, width: 56, height: 56, borderRadius: 28, backgroundColor: CORES.roxo, justifyContent: 'center', alignItems: 'center', elevation: 5, shadowColor: CORES.roxo, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8 },
+
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: CORES.overlay, justifyContent: 'center', padding: SPACING.lg },
+  modalContent: { backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.xl, padding: SPACING.lg },
+  modalHero: { height: 120, backgroundColor: CORES.background, borderRadius: RADIUS.lg, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.md, position: 'relative' },
+  modalHeroIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: CORES.backgroundCard, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: CORES.laranja },
+  heroDestaque: { position: 'absolute', top: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.sm, paddingVertical: 4 },
+  heroDestaqueText: { color: CORES.laranja, fontSize: 10, fontWeight: '600' },
+
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: SPACING.sm, gap: SPACING.sm },
+  modalTitulo: { color: CORES.branco, fontSize: FONT_SIZE.xl, fontWeight: 'bold', flex: 1 },
+  headerActions: { flexDirection: 'row', gap: SPACING.xs },
+  headerActionBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: CORES.background, justifyContent: 'center', alignItems: 'center' },
+
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.xs },
+  infoText: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm, flex: 1 },
+
+  modalDesc: { color: CORES.branco, fontSize: FONT_SIZE.sm, lineHeight: 22, marginTop: SPACING.sm, marginBottom: SPACING.md },
+
+  badgeRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.md, flexWrap: 'wrap' },
+  catBadge: { backgroundColor: CORES.background, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: 4 },
+  catBadgeText: { color: CORES.roxoClaro, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+  comercialBadge: { backgroundColor: CORES.laranja + '33', borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: 4 },
+  comercialText: { color: CORES.laranja, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+
+  actionRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.sm },
+  actionCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: CORES.background, justifyContent: 'center', alignItems: 'center' },
+  ctaBtnInscrito: { backgroundColor: CORES.sucesso },
+  ctaRow: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.sm },
+  ctaSecundario: { flex: 1, paddingVertical: 12, backgroundColor: CORES.background, borderRadius: RADIUS.sm, alignItems: 'center', justifyContent: 'center' },
+  ctaSecundarioText: { color: CORES.cinzaClaro, fontWeight: '600' },
+  ctaBtn: { flex: 2, flexDirection: 'row', gap: 6, paddingVertical: 12, backgroundColor: CORES.roxo, borderRadius: RADIUS.sm, alignItems: 'center', justifyContent: 'center' },
+  ctaBtnText: { color: CORES.branco, fontWeight: 'bold' },
 });
