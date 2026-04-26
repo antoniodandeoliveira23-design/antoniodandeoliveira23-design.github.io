@@ -1,6 +1,7 @@
 import { supabase, supabaseConfigured } from './supabase';
 import type { Evento } from '@/types';
 import { _demoPendentes } from './eventos';
+import { registrarAcao } from './auditoria';
 
 /**
  * R4 - Moderação de eventos comerciais.
@@ -35,7 +36,27 @@ export const moderacaoService = {
       .from('eventos')
       .update({ status: 'aprovado' })
       .eq('id', eventoId);
-    if (error) throw new Error(error.message);
+    if (error) {
+      await registrarAcao({
+        acao: 'evento_aprovacao_falha',
+        categoria: 'moderacao',
+        severidade: 'aviso',
+        tabela: 'eventos',
+        registroId: eventoId,
+        detalhes: { motivo: error.message },
+        resultado: 'falha',
+      });
+      throw new Error(error.message);
+    }
+
+    await registrarAcao({
+      acao: 'evento_aprovado',
+      categoria: 'moderacao',
+      severidade: 'info',
+      tabela: 'eventos',
+      registroId: eventoId,
+      resultado: 'sucesso',
+    });
   },
 
   async rejeitar(eventoId: string, motivo: string): Promise<void> {
@@ -52,6 +73,27 @@ export const moderacaoService = {
       .from('eventos')
       .update({ status: 'rejeitado', motivo_rejeicao: motivo } as any)
       .eq('id', eventoId);
-    if (error) throw new Error(error.message);
+    if (error) {
+      await registrarAcao({
+        acao: 'evento_rejeicao_falha',
+        categoria: 'moderacao',
+        severidade: 'aviso',
+        tabela: 'eventos',
+        registroId: eventoId,
+        detalhes: { motivo: error.message },
+        resultado: 'falha',
+      });
+      throw new Error(error.message);
+    }
+
+    await registrarAcao({
+      acao: 'evento_rejeitado',
+      categoria: 'moderacao',
+      severidade: 'aviso',
+      tabela: 'eventos',
+      registroId: eventoId,
+      detalhes: { motivo_rejeicao: motivo },
+      resultado: 'sucesso',
+    });
   },
 };

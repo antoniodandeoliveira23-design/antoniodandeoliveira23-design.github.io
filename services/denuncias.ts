@@ -1,5 +1,6 @@
 import { supabase, supabaseConfigured } from './supabase';
 import { Denuncia, TipoDenuncia } from '@/types';
+import { registrarAcao } from './auditoria';
 
 export const denunciasService = {
   async criar(data: {
@@ -39,7 +40,27 @@ export const denunciasService = {
       .select()
       .single();
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      await registrarAcao({
+        acao: 'denuncia_falha',
+        categoria: 'denuncia',
+        severidade: 'aviso',
+        detalhes: { tipo: data.tipo, motivo: error.message },
+        resultado: 'falha',
+      });
+      throw new Error(error.message);
+    }
+
+    await registrarAcao({
+      acao: 'denuncia_criada',
+      categoria: 'denuncia',
+      severidade: data.tipo === 'usuario' ? 'aviso' : 'info',
+      tabela: 'denuncias',
+      registroId: denuncia.id,
+      detalhes: { tipo: data.tipo, motivo: data.motivo },
+      resultado: 'sucesso',
+    });
+
     return denuncia;
   },
 };

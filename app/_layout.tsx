@@ -6,13 +6,27 @@ import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { EventosProvider } from '@/contexts/EventosContext';
 import { CORES } from '@/constants/theme';
+import { CSP_POLICY, sessionGuard } from '@/services/seguranca';
 
 SplashScreen.preventAutoHideAsync();
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { signed, loading } = useAuth();
+  const { signed, loading, signOut } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+
+  // A07 — Session timeout: desloga após 30min de inatividade
+  useEffect(() => {
+    if (signed && Platform.OS === 'web') {
+      sessionGuard.iniciar(() => {
+        signOut?.();
+        router.replace('/login');
+      });
+    } else {
+      sessionGuard.parar();
+    }
+    return () => sessionGuard.parar();
+  }, [signed]);
 
   useEffect(() => {
     if (loading) return;
@@ -23,10 +37,8 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     const inProtectedRoute = !inAuthGroup && !inPublicRoute;
 
     if (signed && inPublicRoute) {
-      // Logado mas em rota pública -> ir para home
       router.replace('/(tabs)');
     } else if (!signed && (inAuthGroup || inProtectedRoute)) {
-      // Não logado mas em rota protegida -> ir para login
       router.replace('/login');
     }
   }, [signed, loading, segments]);
@@ -49,16 +61,24 @@ function RootLayoutContent() {
 
   useEffect(() => {
     if (Platform.OS === 'web') {
-      const meta = (name: string, content: string) => {
-        let tag = document.querySelector(`meta[name="${name}"]`);
+      const meta = (name: string, content: string, isHttpEquiv = false) => {
+        const attr = isHttpEquiv ? `meta[http-equiv="${name}"]` : `meta[name="${name}"]`;
+        let tag = document.querySelector(attr);
         if (!tag) {
           tag = document.createElement('meta');
-          tag.setAttribute('name', name);
+          tag.setAttribute(isHttpEquiv ? 'http-equiv' : 'name', name);
           document.head.appendChild(tag);
         }
         tag.setAttribute('content', content);
       };
 
+      // A05 — Fallback via meta tag (Vercel já envia estes como HTTP headers reais)
+      // Mantidos aqui para cobertura em dev local e builds não-Vercel
+      meta('Content-Security-Policy', CSP_POLICY, true);
+      meta('X-Frame-Options', 'DENY', true);
+      meta('X-Content-Type-Options', 'nosniff', true);
+
+      // PWA meta tags
       meta('mobile-web-app-capable', 'yes');
       meta('apple-mobile-web-app-capable', 'yes');
       meta('apple-mobile-web-app-status-bar-style', 'black-translucent');
@@ -91,6 +111,7 @@ function RootLayoutContent() {
         <Stack.Screen name="cadastro-empresa" options={{ presentation: 'modal' }} />
         <Stack.Screen name="produtos" options={{ presentation: 'modal' }} />
         <Stack.Screen name="permissao-localizacao" />
+        <Stack.Screen name="auth/callback" />
       </Stack>
     </AuthGuard>
   );

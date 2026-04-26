@@ -1,0 +1,65 @@
+# A06 — Dependabot: PRs automáticos para dependências desatualizadas ou vulneráveis
+# Verifica npm semanalmente e GitHub Actions mensalmente
+
+version: 2
+updates:
+  # ── npm / Node.js ────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "America/Porto_Velho"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "antoniodandeoliveira23"
+    labels:
+      - "dependencies"
+      - "security"
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(dev-deps)"
+      include: "scope"
+    # Agrupa atualizações menores/patch em um único PR para não poluir
+    groups:
+      expo-packages:
+        patterns:
+          - "expo*"
+          - "@expo/*"
+        update-types:
+          - "minor"
+          - "patch"
+      react-native:
+        patterns:
+          - "react-native*"
+          - "@react-native/*"
+        update-types:
+          - "minor"
+          - "patch"
+      supabase:
+        patterns:
+          - "@supabase/*"
+        update-types:
+          - "minor"
+          - "patch"
+    # Ignora major bumps automáticos (Expo SDK requer migração manual)
+    ignore:
+      - dependency-name: "expo"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-native"
+        update-types: ["version-update:semver-major"]
+
+  # ── GitHub Actions ───────────────────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      day: "monday"
+      time: "08:00"
+      timezone: "America/Porto_Velho"
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "ci(actions)"

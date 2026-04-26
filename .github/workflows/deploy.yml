@@ -1,4 +1,4 @@
-name: Deploy AGORA to GitHub Pages
+name: Deploy AGORA to Vercel
 
 on:
   push:
@@ -7,15 +7,13 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  group: "vercel-deploy"
+  cancel-in-progress: true
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -30,31 +28,39 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # A06 — Auditoria de segurança de dependências
+      - name: Security audit
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Check for critical vulnerabilities
+        run: |
+          CRITICAL=$(npm audit --json | node -e "
+            const d=require('fs').readFileSync('/dev/stdin','utf8');
+            const r=JSON.parse(d);
+            const c=r.metadata?.vulnerabilities?.critical||0;
+            console.log(c);
+          " 2>/dev/null || echo "0")
+          echo "Vulnerabilidades críticas: $CRITICAL"
+          if [ "$CRITICAL" -gt "0" ]; then
+            echo "::warning::$CRITICAL vulnerabilidade(s) crítica(s) detectada(s). Revisar antes do próximo deploy."
+          fi
+
       - name: Build Expo web (static export)
         run: npx expo export --platform web
         env:
-          # Supabase anon key is safe to include (designed to be public, RLS protects data)
-          EXPO_PUBLIC_SUPABASE_URL: https://spzsdjrjejlemuompfgf.supabase.co
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwenNkanJqZWpsZW11b21wZmdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3NDg3OTUsImV4cCI6MjA5MDMyNDc5NX0.3v3kK3H5jA6fiJ-hGMGX1Xxcupy-ngplbGrpVzVeVJQ
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
 
       - name: Copy index.html to 404.html (SPA fallback)
         run: cp dist/index.html dist/404.html
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      # Deploy para Vercel com headers HTTP reais (A05)
+      - name: Deploy to Vercel (Production)
+        uses: amondnet/vercel-action@v25
         with:
-          path: dist
-
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: "--prod"
+          working-directory: ./

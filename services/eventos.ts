@@ -2,6 +2,7 @@ import { supabase, supabaseConfigured } from './supabase';
 import { Evento, CategoriaEvento } from '@/types';
 import type { CriarEventoData } from '@/contexts/EventosContext';
 import { validacaoSemantica } from './validacao-semantica';
+import { registrarAcao, registrarAnomalia } from './auditoria';
 
 // Demo pendentes (R4) - eventos comerciais aguardando aprovação admin
 export const _demoPendentes: Evento[] = [
@@ -130,6 +131,13 @@ export const eventosService = {
 
     // R7: Gov precisa estar verificada
     if (profile?.tipo_conta === 'gov' && !profile?.verificado) {
+      await registrarAcao({
+        acao: 'evento_criacao_bloqueada',
+        categoria: 'seguranca',
+        severidade: 'aviso',
+        detalhes: { motivo: 'GOV_NAO_VERIFICADO', tipo_conta: profile?.tipo_conta },
+        resultado: 'bloqueado',
+      });
       throw new Error('GOV_NAO_VERIFICADO');
     }
 
@@ -139,6 +147,19 @@ export const eventosService = {
     );
 
     if ((profile?.tipo_conta === 'pf' || profile?.tipo_conta === 'gov') && ehComercial) {
+      await registrarAcao({
+        acao: 'evento_criacao_bloqueada',
+        categoria: 'seguranca',
+        severidade: 'aviso',
+        detalhes: { motivo: 'BLOQUEIO_COMERCIAL', tipo_conta: profile?.tipo_conta },
+        resultado: 'bloqueado',
+      });
+      await registrarAnomalia({
+        userId: user.id,
+        tipo: 'conteudo_suspeito',
+        descricao: 'PF tentou publicar evento com linguagem comercial',
+        detalhes: { nome_evento: eventoData.nome.substring(0, 50) },
+      });
       throw new Error('BLOQUEIO_COMERCIAL');
     }
 
@@ -174,7 +195,33 @@ export const eventosService = {
       .insert(novoEvento)
       .select('*, criador:profiles(*)')
       .single();
-    if (error) throw new Error(error.message);
+
+    if (error) {
+      await registrarAcao({
+        acao: 'evento_criacao_falha',
+        categoria: 'evento',
+        severidade: 'aviso',
+        detalhes: { motivo: error.message },
+        resultado: 'falha',
+      });
+      throw new Error(error.message);
+    }
+
+    await registrarAcao({
+      acao: 'evento_criado',
+      categoria: 'evento',
+      severidade: 'info',
+      tabela: 'eventos',
+      registroId: data.id,
+      detalhes: {
+        nome: data.nome,
+        status: data.status,
+        comercial: data.comercial,
+        tipo_conta: profile?.tipo_conta,
+      },
+      resultado: 'sucesso',
+    });
+
     return data;
   },
 
