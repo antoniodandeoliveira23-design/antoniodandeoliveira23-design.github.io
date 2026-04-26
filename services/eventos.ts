@@ -4,7 +4,36 @@ import type { CriarEventoData } from '@/contexts/EventosContext';
 import { validacaoSemantica } from './validacao-semantica';
 import { registrarAcao, registrarAnomalia } from './auditoria';
 
-// Demo pendentes (R4) - eventos comerciais aguardando aprovação admin
+// ─────────────────────────────────────────────────────────
+// Tipos
+// ─────────────────────────────────────────────────────────
+
+export interface OpcoesPaginacao {
+  pagina?: number;
+  porPagina?: number;
+}
+
+export interface OpcoesFiltro extends OpcoesPaginacao {
+  categoria?: CategoriaEvento | null;
+  busca?: string;
+}
+
+export interface RespostaPaginada<T> {
+  dados: T[];
+  total: number;
+  pagina: number;
+  porPagina: number;
+  temMais: boolean;
+}
+
+export interface EventoComDistancia extends Evento {
+  distancia_km: number;
+}
+
+// ─────────────────────────────────────────────────────────
+// Dados demo
+// ─────────────────────────────────────────────────────────
+
 export const _demoPendentes: Evento[] = [
   {
     id: 'pend-1',
@@ -25,7 +54,6 @@ export const _demoPendentes: Evento[] = [
   },
 ];
 
-// Demo data when Supabase is not configured
 const DEMO_EVENTOS: Evento[] = [
   { id: '1', criador_id: 'demo', nome: 'Festival de Música', descricao: 'Grande festival ao ar livre com bandas locais.', local: 'Centro, Vilhena - RO', lat: -12.7405, lng: -60.1458, categoria: 'musica', data_inicio: new Date().toISOString(), comercial: false, exclusivo_mulheres: false, status: 'aprovado', pago: true, destaque: false, criado_em: new Date().toISOString() },
   { id: '2', criador_id: 'demo', nome: 'Feira de Artesanato', descricao: 'Artesanato local e comidas típicas.', local: 'Praça Central', lat: -12.7380, lng: -60.1430, categoria: 'feira', data_inicio: new Date(Date.now() + 86400000).toISOString(), comercial: false, exclusivo_mulheres: false, status: 'aprovado', pago: true, destaque: true, criado_em: new Date().toISOString() },
@@ -33,37 +61,114 @@ const DEMO_EVENTOS: Evento[] = [
   { id: '4', criador_id: 'demo', nome: 'Workshop de Fotografia', descricao: 'Aprenda técnicas de fotografia.', local: 'Espaço Cultural', lat: -12.7390, lng: -60.1440, categoria: 'educacao', data_inicio: new Date(Date.now() + 259200000).toISOString(), comercial: false, exclusivo_mulheres: false, status: 'aprovado', pago: true, destaque: false, criado_em: new Date().toISOString() },
 ];
 
+// ─────────────────────────────────────────────────────────
+// Utilitário: Haversine (distância em km entre dois pontos)
+// ─────────────────────────────────────────────────────────
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 100) / 100;
+}
+
+// ─────────────────────────────────────────────────────────
+// Service
+// ─────────────────────────────────────────────────────────
 export const eventosService = {
-  async listar(categoria?: CategoriaEvento | null, busca?: string): Promise<Evento[]> {
+
+  // ── LISTAR com filtro + paginação ──────────────────────
+  async listar(opcoes: OpcoesFiltro = {}): Promise<RespostaPaginada<Evento>> {
+    const { categoria, busca, pagina = 1, porPagina = 20 } = opcoes;
+    const offset = (pagina - 1) * porPagina;
+
     if (!supabaseConfigured) {
       let result = [...DEMO_EVENTOS];
       if (categoria) result = result.filter((e) => e.categoria === categoria);
       if (busca?.trim()) {
         const b = busca.toLowerCase();
-        result = result.filter((e) => e.nome.toLowerCase().includes(b) || e.local.toLowerCase().includes(b));
+        result = result.filter(
+          (e) => e.nome.toLowerCase().includes(b) || e.local.toLowerCase().includes(b)
+        );
       }
-      return result;
+      const total = result.length;
+      const dados = result.slice(offset, offset + porPagina);
+      return { dados, total, pagina, porPagina, temMais: offset + porPagina < total };
     }
 
     let query = supabase
       .from('eventos')
-      .select('*, criador:profiles(*)')
+      .select('*, criador:profiles(*)', { count: 'exact' })
       .eq('status', 'aprovado')
-      .order('data_inicio', { ascending: true });
+      .order('destaque', { ascending: false })
+      .order('data_inicio', { ascending: true })
+      .range(offset, offset + porPagina - 1);
 
-    if (categoria) {
-      query = query.eq('categoria', categoria);
-    }
+    if (categoria) query = query.eq('categoria', categoria);
+    if (busca?.trim()) query = query.or(`nome.ilike.%${busca}%,local.ilike.%${busca}%`);
 
-    if (busca && busca.trim()) {
-      query = query.or(`nome.ilike.%${busca}%,local.ilike.%${busca}%`);
-    }
-
-    const { data, error } = await query;
+    const { data, error, count } = await query;
     if (error) throw new Error(error.message);
-    return data || [];
+
+    const total = count ?? 0;
+    return {
+      dados: data || [],
+      total,
+      pagina,
+      porPagina,
+      temMais: offset + porPagina < total,
+    };
   },
 
+  // ── LISTAR POR RAIO GEOGRÁFICO ─────────────────────────
+  async listarPorRaio(
+    lat: number,
+    lng: number,
+    raioKm: number = 10,
+    opcoes: { categoria?: CategoriaEvento | null } & OpcoesPaginacao = {}
+  ): Promise<RespostaPaginada<EventoComDistancia>> {
+    const { categoria, pagina = 1, porPagina = 20 } = opcoes;
+
+    if (!supabaseConfigured) {
+      const comDistancia = DEMO_EVENTOS
+        .filter((e) => !categoria || e.categoria === categoria)
+        .map((e) => ({ ...e, distancia_km: haversineKm(lat, lng, e.lat, e.lng) }))
+        .filter((e) => e.distancia_km <= raioKm)
+        .sort((a, b) => a.distancia_km - b.distancia_km);
+
+      const total = comDistancia.length;
+      const offset = (pagina - 1) * porPagina;
+      return {
+        dados: comDistancia.slice(offset, offset + porPagina),
+        total,
+        pagina,
+        porPagina,
+        temMais: offset + porPagina < total,
+      };
+    }
+
+    const { data, error } = await supabase.rpc('eventos_por_raio', {
+      _lat: lat,
+      _lng: lng,
+      _raio_km: raioKm,
+      _categoria: categoria ?? null,
+      _pagina: pagina,
+      _por_pagina: porPagina,
+    });
+
+    if (error) throw new Error(error.message);
+
+    const total = data?.[0]?.total_count ?? 0;
+    const dados = (data || []).map(({ total_count, ...e }: any) => e as EventoComDistancia);
+
+    return { dados, total, pagina, porPagina, temMais: (pagina - 1) * porPagina + dados.length < total };
+  },
+
+  // ── OBTER por ID ───────────────────────────────────────
   async obter(id: string): Promise<Evento> {
     if (!supabaseConfigured) return DEMO_EVENTOS.find((e) => e.id === id) || DEMO_EVENTOS[0];
     const { data, error } = await supabase
@@ -75,190 +180,165 @@ export const eventosService = {
     return data;
   },
 
+  // ── CRIAR ──────────────────────────────────────────────
   async criar(eventoData: CriarEventoData, tipoContaDemo?: 'pf' | 'pj' | 'gov', verificadoDemo?: boolean): Promise<Evento> {
-    // Demo mode: valida regras localmente sem Supabase
     if (!supabaseConfigured) {
       const tipo = tipoContaDemo || 'pf';
+      if (tipo === 'gov' && !verificadoDemo) throw new Error('GOV_NAO_VERIFICADO');
 
-      // R7: Gov precisa estar verificada
-      if (tipo === 'gov' && !verificadoDemo) {
-        throw new Error('GOV_NAO_VERIFICADO');
-      }
-
-      // R1/R2/R6: Validação semântica
       const ehComercialDemo = validacaoSemantica.detectarConteudoComercial(
         eventoData.nome + ' ' + eventoData.descricao
       );
-      if ((tipo === 'pf' || tipo === 'gov') && ehComercialDemo) {
-        throw new Error('BLOQUEIO_COMERCIAL');
-      }
+      if ((tipo === 'pf' || tipo === 'gov') && ehComercialDemo) throw new Error('BLOQUEIO_COMERCIAL');
 
       const comercialDemo = tipo === 'pj';
       const novoDemo: Evento = {
         id: 'demo-' + Date.now(),
         criador_id: 'demo',
-        nome: eventoData.nome,
-        descricao: eventoData.descricao,
-        local: eventoData.local,
-        lat: eventoData.lat,
-        lng: eventoData.lng,
-        categoria: eventoData.categoria,
-        data_inicio: eventoData.data_inicio,
+        ...eventoData,
         comercial: comercialDemo,
-        exclusivo_mulheres: eventoData.exclusivo_mulheres,
-        status: comercialDemo ? 'pendente' : 'aprovado', // R4
-        pago: !comercialDemo, // R3
+        status: comercialDemo ? 'pendente' : 'aprovado',
+        pago: !comercialDemo,
         destaque: false,
         criado_em: new Date().toISOString(),
       };
-      if (novoDemo.status === 'pendente') {
-        _demoPendentes.unshift(novoDemo);
-      } else {
-        DEMO_EVENTOS.unshift(novoDemo);
-      }
+      if (novoDemo.status === 'pendente') _demoPendentes.unshift(novoDemo);
+      else DEMO_EVENTOS.unshift(novoDemo);
       return novoDemo;
     }
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Usuário não autenticado');
 
-    // Buscar perfil do criador para verificar tipo de conta
     const { data: profile } = await supabase
-      .from('profiles')
-      .select('tipo_conta, verificado')
-      .eq('id', user.id)
-      .single();
+      .from('profiles').select('tipo_conta, verificado').eq('id', user.id).single();
 
-    // R7: Gov precisa estar verificada
     if (profile?.tipo_conta === 'gov' && !profile?.verificado) {
-      await registrarAcao({
-        acao: 'evento_criacao_bloqueada',
-        categoria: 'seguranca',
-        severidade: 'aviso',
-        detalhes: { motivo: 'GOV_NAO_VERIFICADO', tipo_conta: profile?.tipo_conta },
-        resultado: 'bloqueado',
-      });
+      await registrarAcao({ acao: 'evento_criacao_bloqueada', categoria: 'seguranca', severidade: 'aviso', detalhes: { motivo: 'GOV_NAO_VERIFICADO' }, resultado: 'bloqueado' });
       throw new Error('GOV_NAO_VERIFICADO');
     }
 
-    // R1/R2/R6: Validação semântica - PF e Gov não podem publicar conteúdo comercial
-    const ehComercial = validacaoSemantica.detectarConteudoComercial(
-      eventoData.nome + ' ' + eventoData.descricao
-    );
-
+    const ehComercial = validacaoSemantica.detectarConteudoComercial(eventoData.nome + ' ' + eventoData.descricao);
     if ((profile?.tipo_conta === 'pf' || profile?.tipo_conta === 'gov') && ehComercial) {
-      await registrarAcao({
-        acao: 'evento_criacao_bloqueada',
-        categoria: 'seguranca',
-        severidade: 'aviso',
-        detalhes: { motivo: 'BLOQUEIO_COMERCIAL', tipo_conta: profile?.tipo_conta },
-        resultado: 'bloqueado',
-      });
-      await registrarAnomalia({
-        userId: user.id,
-        tipo: 'conteudo_suspeito',
-        descricao: 'PF tentou publicar evento com linguagem comercial',
-        detalhes: { nome_evento: eventoData.nome.substring(0, 50) },
-      });
+      await registrarAcao({ acao: 'evento_criacao_bloqueada', categoria: 'seguranca', severidade: 'aviso', detalhes: { motivo: 'BLOQUEIO_COMERCIAL', tipo_conta: profile?.tipo_conta }, resultado: 'bloqueado' });
+      await registrarAnomalia({ userId: user.id, tipo: 'conteudo_suspeito', descricao: 'PF tentou publicar evento com linguagem comercial', detalhes: { nome_evento: eventoData.nome.substring(0, 50) } });
       throw new Error('BLOQUEIO_COMERCIAL');
     }
 
-    // R3: Verificar se PJ pagou antes de publicar
     const comercial = profile?.tipo_conta === 'pj';
-    let status: 'aprovado' | 'pendente' = 'aprovado';
-
-    if (comercial) {
-      // R4: Conteúdo empresarial precisa de aprovação
-      status = 'pendente';
-    }
-
     const novoEvento = {
       criador_id: user.id,
-      nome: eventoData.nome,
-      descricao: eventoData.descricao,
-      local: eventoData.local,
-      lat: eventoData.lat,
-      lng: eventoData.lng,
-      categoria: eventoData.categoria,
-      data_inicio: eventoData.data_inicio,
+      ...eventoData,
       data_fim: eventoData.data_fim || null,
       comercial,
-      exclusivo_mulheres: eventoData.exclusivo_mulheres,
-      status,
-      pago: !comercial, // PF não precisa pagar; PJ precisa (R3)
+      status: comercial ? 'pendente' : 'aprovado',
+      pago: !comercial,
       destaque: false,
       criado_em: new Date().toISOString(),
     };
 
-    const { data, error } = await supabase
-      .from('eventos')
-      .insert(novoEvento)
-      .select('*, criador:profiles(*)')
-      .single();
-
+    const { data, error } = await supabase.from('eventos').insert(novoEvento).select('*, criador:profiles(*)').single();
     if (error) {
-      await registrarAcao({
-        acao: 'evento_criacao_falha',
-        categoria: 'evento',
-        severidade: 'aviso',
-        detalhes: { motivo: error.message },
-        resultado: 'falha',
-      });
+      await registrarAcao({ acao: 'evento_criacao_falha', categoria: 'evento', severidade: 'aviso', detalhes: { motivo: error.message }, resultado: 'falha' });
       throw new Error(error.message);
     }
 
-    await registrarAcao({
-      acao: 'evento_criado',
-      categoria: 'evento',
-      severidade: 'info',
-      tabela: 'eventos',
-      registroId: data.id,
-      detalhes: {
-        nome: data.nome,
-        status: data.status,
-        comercial: data.comercial,
-        tipo_conta: profile?.tipo_conta,
-      },
-      resultado: 'sucesso',
-    });
-
+    await registrarAcao({ acao: 'evento_criado', categoria: 'evento', severidade: 'info', tabela: 'eventos', registroId: data.id, detalhes: { nome: data.nome, status: data.status, comercial: data.comercial, tipo_conta: profile?.tipo_conta }, resultado: 'sucesso' });
     return data;
   },
 
+  // ── EDITAR ─────────────────────────────────────────────
+  async editar(eventoId: string, updates: Partial<CriarEventoData>): Promise<Evento> {
+    if (!supabaseConfigured) {
+      const idx = DEMO_EVENTOS.findIndex((e) => e.id === eventoId);
+      if (idx === -1) throw new Error('Evento não encontrado');
+      DEMO_EVENTOS[idx] = { ...DEMO_EVENTOS[idx], ...updates };
+      return DEMO_EVENTOS[idx];
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Usuário não autenticado');
+
+    // Verifica se o usuário é dono ou admin
+    const { data: evento } = await supabase.from('eventos').select('criador_id, nome, descricao').eq('id', eventoId).single();
+    const { data: profile } = await supabase.from('profiles').select('tipo_conta').eq('id', user.id).single();
+
+    const isAdmin = profile?.tipo_conta === 'admin';
+    const isDono = evento?.criador_id === user.id;
+    if (!isDono && !isAdmin) throw new Error('SEM_PERMISSAO');
+
+    // Revalida semântica se nome ou descrição mudaram
+    if (updates.nome || updates.descricao) {
+      const textoNovo = (updates.nome ?? evento?.nome ?? '') + ' ' + (updates.descricao ?? evento?.descricao ?? '');
+      const ehComercial = validacaoSemantica.detectarConteudoComercial(textoNovo);
+      if (ehComercial && !isAdmin) {
+        await registrarAcao({ acao: 'evento_edicao_bloqueada', categoria: 'seguranca', severidade: 'aviso', tabela: 'eventos', registroId: eventoId, detalhes: { motivo: 'BLOQUEIO_COMERCIAL' }, resultado: 'bloqueado' });
+        throw new Error('BLOQUEIO_COMERCIAL');
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('eventos')
+      .update({ ...updates, atualizado_em: new Date().toISOString() })
+      .eq('id', eventoId)
+      .select('*, criador:profiles(*)')
+      .single();
+
+    if (error) throw new Error(error.message);
+
+    await registrarAcao({ acao: 'evento_editado', categoria: 'evento', severidade: 'info', tabela: 'eventos', registroId: eventoId, detalhes: { campos_alterados: Object.keys(updates) }, resultado: 'sucesso' });
+    return data;
+  },
+
+  // ── DELETAR (soft delete → status 'expirado') ──────────
+  async deletar(eventoId: string): Promise<void> {
+    if (!supabaseConfigured) {
+      const idx = DEMO_EVENTOS.findIndex((e) => e.id === eventoId);
+      if (idx !== -1) DEMO_EVENTOS.splice(idx, 1);
+      return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Usuário não autenticado');
+
+    const { data: evento } = await supabase.from('eventos').select('criador_id').eq('id', eventoId).single();
+    const { data: profile } = await supabase.from('profiles').select('tipo_conta').eq('id', user.id).single();
+
+    const isAdmin = profile?.tipo_conta === 'admin';
+    const isDono  = evento?.criador_id === user.id;
+    if (!isDono && !isAdmin) throw new Error('SEM_PERMISSAO');
+
+    // Soft delete: marca como expirado em vez de deletar fisicamente
+    const { error } = await supabase
+      .from('eventos')
+      .update({ status: 'expirado', atualizado_em: new Date().toISOString() })
+      .eq('id', eventoId);
+
+    if (error) throw new Error(error.message);
+
+    await registrarAcao({ acao: 'evento_deletado', categoria: 'evento', severidade: 'aviso', tabela: 'eventos', registroId: eventoId, detalhes: { por_admin: isAdmin }, resultado: 'sucesso' });
+  },
+
+  // ── FAVORITAR / DESFAVORITAR ───────────────────────────
   async favoritar(eventoId: string): Promise<void> {
     if (!supabaseConfigured) return;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Não autenticado');
-
-    await supabase.from('favoritos').insert({
-      usuario_id: user.id,
-      evento_id: eventoId,
-      criado_em: new Date().toISOString(),
-    });
+    await supabase.from('favoritos').insert({ usuario_id: user.id, evento_id: eventoId, criado_em: new Date().toISOString() });
   },
 
   async desfavoritar(eventoId: string): Promise<void> {
     if (!supabaseConfigured) return;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Não autenticado');
-
-    await supabase
-      .from('favoritos')
-      .delete()
-      .eq('usuario_id', user.id)
-      .eq('evento_id', eventoId);
+    await supabase.from('favoritos').delete().eq('usuario_id', user.id).eq('evento_id', eventoId);
   },
 
   async listarFavoritos(): Promise<string[]> {
     if (!supabaseConfigured) return [];
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
-
-    const { data } = await supabase
-      .from('favoritos')
-      .select('evento_id')
-      .eq('usuario_id', user.id);
-
+    const { data } = await supabase.from('favoritos').select('evento_id').eq('usuario_id', user.id);
     return data?.map((f) => f.evento_id) || [];
   },
 };
