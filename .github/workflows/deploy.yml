@@ -1,4 +1,4 @@
-name: Deploy AGORA to Vercel
+name: Deploy AGORA → Vercel
 
 on:
   push:
@@ -9,31 +9,39 @@ permissions:
   contents: read
 
 concurrency:
-  group: "vercel-deploy"
+  group: vercel-deploy
   cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
+  # ── 1. Quality Gate ─────────────────────────────────────
+  quality:
+    name: 🔍 Quality Gate
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "npm"
+          node-version: '20'
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
+
+      - name: TypeScript — type check
+        run: npm run typecheck
+
+      - name: ESLint
+        run: npm run lint
 
       # A06 — Auditoria de segurança de dependências
       - name: Security audit
         run: npm audit --audit-level=high
         continue-on-error: true
 
-      - name: Check for critical vulnerabilities
+      - name: Verificar vulnerabilidades críticas
         run: |
           CRITICAL=$(npm audit --json | node -e "
             const d=require('fs').readFileSync('/dev/stdin','utf8');
@@ -46,21 +54,60 @@ jobs:
             echo "::warning::$CRITICAL vulnerabilidade(s) crítica(s) detectada(s). Revisar antes do próximo deploy."
           fi
 
-      - name: Build Expo web (static export)
-        run: npx expo export --platform web
-        env:
-          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+  # ── 2. Build + Deploy ────────────────────────────────────
+  deploy:
+    name: 🚀 Build + Deploy → Vercel
+    runs-on: ubuntu-latest
+    needs: quality
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.preview-url }}
+    env:
+      # Chaves públicas — sem risco de segurança (anon key = somente leitura com RLS)
+      EXPO_PUBLIC_SUPABASE_URL: https://spzsdjrjejlemuompfgf.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwenNkanJqZWpsZW11b21wZmdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3NDg3OTUsImV4cCI6MjA5MDMyNDc5NX0.3v3kK3H5jA6fiJ-hGMGX1Xxcupy-ngplbGrpVzVeVJQ
+      # IDs do projeto Vercel — não são sensíveis
+      VERCEL_ORG_ID: team_aUjYLNcbhZr9QUlNqrJDuUWE
+      VERCEL_PROJECT_ID: prj_Z50TS7W4irtoy8acWw2OPVWtQsDz
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Copy index.html to 404.html (SPA fallback)
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Expo web (static export)
+        run: npm run build
+
+      - name: SPA fallback (404.html)
         run: cp dist/index.html dist/404.html
+
+      # Verifica se o token está configurado antes de deployar
+      - name: Verificar VERCEL_TOKEN
+        run: |
+          if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then
+            echo "::error::VERCEL_TOKEN não configurado. Acesse: GitHub → Settings → Secrets → Actions → New secret"
+            echo "::error::Nome: VERCEL_TOKEN  |  Valor: token de https://vercel.com/account/tokens"
+            exit 1
+          fi
+          echo "✅ VERCEL_TOKEN configurado"
 
       # Deploy para Vercel com headers HTTP reais (A05)
       - name: Deploy to Vercel (Production)
+        id: deploy
         uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: "--prod"
+          vercel-org-id: ${{ env.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ env.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
           working-directory: ./
+
+      - name: 🎉 URL publicada
+        run: echo "✅ Deploy concluído → ${{ steps.deploy.outputs.preview-url }}"
