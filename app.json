@@ -8,10 +8,21 @@
     "scheme": "agora",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.agora.app"
+      "bundleIdentifier": "com.agora.app",
+      "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": ["agora", "com.agora.app"]
+          }
+        ],
+        "NSCameraUsageDescription": "O AGORA precisa da câmera para fotografar eventos.",
+        "NSPhotoLibraryUsageDescription": "O AGORA precisa acessar sua galeria para adicionar fotos ao perfil e eventos."
+      }
     },
+
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#1A0B2E",
@@ -20,8 +31,26 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.agora.app"
+      "package": "com.agora.app",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "agora"
+            },
+            {
+              "scheme": "https",
+              "host": "agora-vilhena.vercel.app",
+              "pathPrefix": "/auth/callback"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
+
     "web": {
       "bundler": "metro",
       "output": "static",
@@ -36,8 +65,15 @@
       "startUrl": "/",
       "scope": "/"
     },
+
     "plugins": [
       "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O AGORA precisa acessar sua galeria para adicionar fotos ao perfil e eventos."
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -51,6 +87,7 @@
         }
       ]
     ],
+
     "experiments": {
       "typedRoutes": true
     }
