@@ -1,10 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { produtosService } from '@/services/produtos';
+import { validacaoSemantica } from '@/services/validacao-semantica';
+import { registrarAnomalia } from '@/services/auditoria';
+import { storageService } from '@/services/storage';
+import ImageUpload from '@/components/ImageUpload';
 import type { Produto, CategoriaProduto } from '@/types';
 
 const CATEGORIAS_PRODUTO: { value: CategoriaProduto; label: string; icon: string }[] = [
@@ -29,8 +34,11 @@ export default function ProdutosScreen() {
   const [preco, setPreco] = useState('');
   const [local, setLocal] = useState('');
   const [categoria, setCategoria] = useState<CategoriaProduto>('outro');
+  const [imagemUrl, setImagemUrl] = useState<string | undefined>();
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState(false);
+
+  const campoCaminhoImagem = storageService.gerarCaminho(user?.id || 'demo');
 
   useEffect(() => {
     loadProdutos();
@@ -38,7 +46,7 @@ export default function ProdutosScreen() {
 
   const loadProdutos = async () => {
     const data = await produtosService.listar();
-    setProdutos(data);
+    setProdutos(data.dados);
   };
 
   const handleCriar = async () => {
@@ -47,20 +55,48 @@ export default function ProdutosScreen() {
       setErro('Preencha nome, local e preço.');
       return;
     }
+
+    // R1b/R1c — Validação semântica: spam + conteúdo ofensivo
+    const textoCompleto = `${nome.trim()} ${descricao.trim()}`;
+    const analise = validacaoSemantica.analisar(textoCompleto, 'produto');
+
+    if (analise.bloqueado) {
+      // Registra anomalia silenciosamente
+      await registrarAnomalia({
+        userId: user?.id,
+        tipo: 'conteudo_suspeito',
+        descricao: `Produto bloqueado por conteúdo: ${analise.motivo}`,
+        detalhes: {
+          contexto: 'produto',
+          nome_produto: nome.trim().substring(0, 80),
+          score: analise.score,
+          motivos: analise.alertas.slice(0, 3),
+        },
+      });
+      setErro(analise.motivo ?? 'Conteúdo não permitido. Revise nome e descrição.');
+      return;
+    }
+
+    // Aviso leve (spam parcial) — permite criar mas exibe alerta
+    if (analise.alertas.length > 0) {
+      setErro(`Atenção: ${analise.alertas[0]} — o produto foi salvo mas pode ser revisado.`);
+    }
+
     try {
       await produtosService.criar({
-        criador_id: user?.id || 'demo',
         nome: nome.trim(),
         descricao: descricao.trim(),
         preco: parseFloat(preco.replace(',', '.')),
         moeda: 'BRL',
         categoria,
+        imagem_url: imagemUrl,
         local: local.trim(),
         lat: -12.7405 + (Math.random() * 0.01 - 0.005),
         lng: -60.1458 + (Math.random() * 0.01 - 0.005),
       });
       setSucesso(true);
-      setNome(''); setDescricao(''); setPreco(''); setLocal('');
+      setNome(''); setDescricao(''); setPreco(''); setLocal(''); setImagemUrl(undefined);
+      setErro('');
       await loadProdutos();
       setTimeout(() => { setSucesso(false); setModalCriar(false); }, 1500);
     } catch {
@@ -93,7 +129,16 @@ export default function ProdutosScreen() {
           produtos.map(prod => (
             <View key={prod.id} style={styles.card}>
               <View style={styles.cardIcon}>
-                <Ionicons name="bag-handle" size={24} color={CORES.laranja} />
+                {prod.imagem_url ? (
+                  <Image
+                    source={{ uri: prod.imagem_url }}
+                    style={styles.cardImg}
+                    contentFit="cover"
+                    transition={200}
+                  />
+                ) : (
+                  <Ionicons name="bag-handle" size={24} color={CORES.laranja} />
+                )}
               </View>
               <View style={styles.cardInfo}>
                 <Text style={styles.cardNome} numberOfLines={1}>{prod.nome}</Text>
@@ -131,6 +176,20 @@ export default function ProdutosScreen() {
                 </View>
               ) : (
                 <>
+                  {/* Foto do produto */}
+                  <View style={styles.imagemProdutoWrapper}>
+                    <ImageUpload
+                      bucket="produtos"
+                      caminho={campoCaminhoImagem}
+                      urlAtual={imagemUrl}
+                      onUpload={setImagemUrl}
+                      shape="rect"
+                      width={280}
+                      height={160}
+                      label="Adicionar foto do produto"
+                    />
+                  </View>
+
                   <Text style={styles.label}>Nome do produto</Text>
                   <View style={styles.inputWrapper}>
                     <TextInput style={styles.input} placeholder="Ex: Cesta de café regional" placeholderTextColor={CORES.cinza} value={nome} onChangeText={setNome} />
@@ -190,8 +249,11 @@ const styles = StyleSheet.create({
 
   listContent: { paddingHorizontal: SPACING.lg, paddingBottom: 40, gap: SPACING.sm },
 
+  imagemProdutoWrapper: { alignItems: 'center', marginBottom: SPACING.md },
+
   card: { flexDirection: 'row', backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.lg, padding: SPACING.md, gap: SPACING.sm, alignItems: 'center' },
-  cardIcon: { width: 48, height: 48, borderRadius: 12, backgroundColor: CORES.background, justifyContent: 'center', alignItems: 'center' },
+  cardIcon: { width: 56, height: 56, borderRadius: 12, backgroundColor: CORES.background, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  cardImg: { width: 56, height: 56, borderRadius: 12 },
   cardInfo: { flex: 1, gap: 2 },
   cardNome: { color: CORES.branco, fontSize: FONT_SIZE.sm, fontWeight: 'bold' },
   cardDesc: { color: CORES.cinzaClaro, fontSize: 11, lineHeight: 16 },

@@ -21,6 +21,43 @@ export default function AuthCallback() {
         return;
       }
 
+      // Lê parâmetros da URL e do hash (Supabase usa hash para tokens OAuth)
+      const params     = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
+
+      // ── Detectar erro direto na URL (ex: OAuth provider not enabled) ──
+      const urlError = params.get('error_description') || hashParams.get('error_description');
+      if (urlError) {
+        const msg = urlError.toLowerCase();
+        if (msg.includes('provider') || msg.includes('not enabled')) {
+          router.replace('/login?erro=oauth_desativado');
+        } else {
+          router.replace('/login');
+        }
+        return;
+      }
+
+      // ── Detectar fluxo de recuperação de senha (type=recovery) ────────
+      // Supabase envia o token no hash: #access_token=...&type=recovery
+      const tipoCallback = hashParams.get('type') || params.get('type');
+      if (tipoCallback === 'recovery') {
+        // O Supabase JS v2 troca automaticamente o token de recovery por sessão
+        // Só precisamos verificar se a sessão está ativa e redirecionar
+        const { data: { session } } = await supabase.auth.getSession();
+
+        await registrarAcao({
+          acao: 'recuperacao_senha_link_clicado',
+          categoria: 'auth',
+          severidade: 'info',
+          detalhes: { sessao: session ? 'ativa' : 'nula' },
+          resultado: session ? 'sucesso' : 'falha',
+        });
+
+        // Mesmo sem sessão confirmada, redireciona — nova-senha.tsx vai exibir erro
+        router.replace('/nova-senha' as any);
+        return;
+      }
+
       try {
         // Supabase JS v2 detecta automaticamente o token no hash da URL
         const { data: { session }, error } = await supabase.auth.getSession();
@@ -57,6 +94,10 @@ export default function AuthCallback() {
     processarCallback();
   }, []);
 
+  // Detecta se é recovery para mostrar mensagem adequada
+  const isRecovery = typeof window !== 'undefined'
+    && (window.location.hash.includes('type=recovery') || window.location.search.includes('type=recovery'));
+
   return (
     <View style={{
       flex: 1,
@@ -66,8 +107,8 @@ export default function AuthCallback() {
       gap: 16,
     }}>
       <ActivityIndicator size="large" color={CORES.roxo} />
-      <Text style={{ color: CORES.texto, fontSize: 16 }}>
-        Finalizando login...
+      <Text style={{ color: CORES.branco, fontSize: 16 }}>
+        {isRecovery ? 'Verificando link de recuperação...' : 'Finalizando login...'}
       </Text>
     </View>
   );

@@ -1,8 +1,15 @@
+import { Platform } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { supabase, supabaseConfigured } from './supabase';
 import { User, TipoConta } from '@/types';
 import type { RegisterData } from '@/contexts/AuthContext';
 import { registrarAcao, registrarAcesso, trackLoginFalha } from './auditoria';
 import { rateLimiter, validarSenha, storageSeguro, sanitizador } from './seguranca';
+import { emailService } from './email';
+
+// Aquece o WebBrowser no iOS para evitar delay na primeira abertura
+WebBrowser.maybeCompleteAuthSession();
 
 // Perfis demo para testar diferentes tipos de conta
 const DEMO_PROFILES: Record<string, Partial<User>> = {
@@ -96,7 +103,46 @@ function mapSupabaseUser(supaUser: any, profile: any): User {
   };
 }
 
+// ─────────────────────────────────────────────────────────────────
+// Helpers internos (não exportados)
+// ─────────────────────────────────────────────────────────────────
+
+/** Audit log + boas-vindas para 1º login social */
+async function _finalizarLoginSocial(
+  user: { id: string; email?: string; created_at?: string },
+  provider: string,
+): Promise<void> {
+  try {
+    await registrarAcesso('login', user.id);
+    await registrarAcao({
+      acao: 'login_social',
+      categoria: 'auth',
+      severidade: 'info',
+      detalhes: { provider },
+      resultado: 'sucesso',
+    });
+
+    // Envia boas-vindas apenas para novos usuários (conta criada há < 30s)
+    const criado = user.created_at ? new Date(user.created_at).getTime() : 0;
+    const ehNovo = Date.now() - criado < 30_000;
+    if (ehNovo && user.email) {
+      emailService.boasVindas({ para: user.email, nome: '' }); // nome preenchido pelo trigger
+    }
+  } catch { /* audit nunca bloqueia login */ }
+}
+
 export const authService = {
+  /**
+   * Login demo — sempre funciona, mesmo com Supabase configurado.
+   * Usado pelos cards de acesso rápido na tela de login.
+   */
+  async loginDemo(tipo: TipoConta): Promise<User> {
+    setDemoTipoConta(tipo);
+    storageSeguro.set('agoraDemoLoggedIn', 'true');
+    sessionStorage.setItem('agoraDemoTipo', tipo);
+    return createDemoUser({ tipo_conta: tipo });
+  },
+
   async login(email: string, senha: string): Promise<User> {
     if (!supabaseConfigured) {
       storageSeguro.set('agoraDemoLoggedIn', 'true');
@@ -150,48 +196,125 @@ export const authService = {
     }
 
     const providerMap = { google: 'google', apple: 'apple', x: 'twitter' } as const;
+    const supabaseProvider = providerMap[provider];
 
-    // A07 — OAuth com redirect de volta para o app
-    const redirectTo = typeof window !== 'undefined'
-      ? `${window.location.origin}/auth/callback`
-      : undefined;
+    // ── WEB: redirect flow padrão ─────────────────────────────────────
+    if (Platform.OS === 'web') {
+      const redirectTo = typeof window !== 'undefined'
+        ? `${window.location.origin}/auth/callback`
+        : 'https://agora-vilhena.vercel.app/auth/callback';
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: providerMap[provider],
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: supabaseProvider,
+        options: {
+          redirectTo,
+          queryParams: {
+            access_type: 'offline',
+            prompt:       'consent',
+          },
+        },
+      });
+
+      if (error) {
+        await registrarAcao({
+          acao: 'login_social_falha',
+          categoria: 'auth',
+          severidade: 'aviso',
+          detalhes: { provider, motivo: error.message },
+          resultado: 'falha',
+        });
+        throw new Error(error.message);
+      }
+
+      // Web redireciona a página inteira — onAuthStateChange em AuthContext
+      // captura a sessão após o retorno. Nunca chegamos aqui na prática.
+      return createDemoUser();
+    }
+
+    // ── NATIVO (iOS / Android): PKCE via expo-web-browser ────────────
+    // Usa o scheme `agora://` registrado no app.json para o deep link de retorno
+    const redirectUri = Linking.createURL('/auth/callback');
+
+    // 1. Obtém a URL de autorização do Supabase sem abrir o browser
+    const { data: oauthData, error: urlError } = await supabase.auth.signInWithOAuth({
+      provider: supabaseProvider,
       options: {
-        redirectTo,
+        redirectTo:          redirectUri,
+        skipBrowserRedirect: true,   // não abre browser — fazemos isso manualmente
         queryParams: {
           access_type: 'offline',
-          prompt: 'consent',
+          ...(provider === 'google' ? { prompt: 'consent' } : {}),
         },
       },
     });
-    if (error) {
+
+    if (urlError || !oauthData?.url) {
       await registrarAcao({
         acao: 'login_social_falha',
         categoria: 'auth',
         severidade: 'aviso',
-        detalhes: { provider, motivo: error.message },
+        detalhes: { provider, motivo: urlError?.message ?? 'URL vazia' },
         resultado: 'falha',
       });
-      throw new Error(error.message);
+      throw new Error(urlError?.message ?? 'Não foi possível iniciar o login social.');
     }
 
-    // OAuth redireciona — getUser() é chamado após retorno via callback
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Falha no login social');
-
-    await registrarAcesso('login', user.id);
-    await registrarAcao({
-      acao: 'login_social',
-      categoria: 'auth',
-      severidade: 'info',
-      detalhes: { provider },
-      resultado: 'sucesso',
+    // 2. Abre o browser da plataforma com a URL do provider
+    const result = await WebBrowser.openAuthSessionAsync(oauthData.url, redirectUri, {
+      showInRecents:       false,
+      preferEphemeralSession: provider !== 'apple', // Apple SSO usa sessão persistente
     });
 
-    const profile = await this.getProfile(user.id);
-    return mapSupabaseUser(user, profile);
+    // Usuário cancelou o login
+    if (result.type === 'cancel' || result.type === 'dismiss') {
+      throw new Error('LOGIN_CANCELADO');
+    }
+
+    if (result.type !== 'success' || !result.url) {
+      throw new Error('Autenticação falhou. Tente novamente.');
+    }
+
+    // 3. Extrai tokens do URL de retorno (hash ou query params)
+    const returnUrl  = result.url;
+    const hashPart   = returnUrl.includes('#') ? returnUrl.split('#')[1] : '';
+    const queryPart  = returnUrl.includes('?') ? returnUrl.split('?')[1].split('#')[0] : '';
+    const params     = new URLSearchParams(hashPart || queryPart);
+
+    const accessToken  = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+
+    if (!accessToken) {
+      // PKCE: pode ter retornado um `code` — tentar trocar
+      const code = params.get('code');
+      if (code) {
+        const { data: sessionData, error: exchangeError } =
+          await supabase.auth.exchangeCodeForSession(code);
+
+        if (exchangeError || !sessionData.session) {
+          throw new Error(exchangeError?.message ?? 'Troca de código falhou.');
+        }
+
+        await _finalizarLoginSocial(sessionData.session.user, provider);
+        const profile = await this.getProfile(sessionData.session.user.id);
+        return mapSupabaseUser(sessionData.session.user, profile);
+      }
+
+      throw new Error('Token de acesso não encontrado no retorno do provedor.');
+    }
+
+    // 4. Define a sessão no cliente Supabase
+    const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+      access_token:  accessToken,
+      refresh_token: refreshToken ?? '',
+    });
+
+    if (sessionError || !sessionData.session) {
+      throw new Error(sessionError?.message ?? 'Falha ao estabelecer sessão.');
+    }
+
+    await _finalizarLoginSocial(sessionData.session.user, provider);
+    const profile = await this.getProfile(sessionData.session.user.id);
+    return mapSupabaseUser(sessionData.session.user, profile);
   },
 
   // ─────────────────────────────────────────────
@@ -356,7 +479,108 @@ export const authService = {
       resultado: 'sucesso',
     });
 
+    // ── Email de boas-vindas (fire-and-forget) ──────────────
+    emailService.boasVindas({
+      para: registerData.email,
+      nome: dadosSanitizados.nome,
+    });
+
     return mapSupabaseUser(data.user, profile);
+  },
+
+  /**
+   * Envia email de redefinição de senha via Supabase Auth.
+   * O Supabase usa o template supabase/auth/reset-password.html
+   * e redireciona para /auth/callback?type=recovery após o clique.
+   */
+  async recuperarSenha(email: string): Promise<void> {
+    if (!supabaseConfigured) {
+      console.log('[demo] Email de recuperação enviado para', email);
+      return;
+    }
+
+    if (!rateLimiter.verificar('recuperar_senha', email)) {
+      const segundos = rateLimiter.tempoRestante('recuperar_senha', email);
+      throw new Error(`RATE_LIMIT:${segundos}`);
+    }
+
+    const redirectTo = typeof window !== 'undefined'
+      ? `${window.location.origin}/auth/callback`
+      : 'https://agora-vilhena.vercel.app/auth/callback';
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo,
+    });
+
+    if (error) {
+      await registrarAcao({
+        acao: 'recuperacao_senha_falha',
+        categoria: 'auth',
+        severidade: 'aviso',
+        detalhes: { email_hash: email.substring(0, 3) + '***', motivo: error.message },
+        resultado: 'falha',
+      });
+      throw new Error(error.message);
+    }
+
+    await registrarAcao({
+      acao: 'recuperacao_senha_email_enviado',
+      categoria: 'auth',
+      severidade: 'info',
+      detalhes: { email_hash: email.substring(0, 3) + '***' },
+      resultado: 'sucesso',
+    });
+  },
+
+  /**
+   * Atualiza senha após o usuário clicar no link do email de recuperação.
+   * Só funciona quando há sessão do tipo 'recovery' ativa.
+   * Após atualizar, envia email de confirmação (senha_redefinida).
+   */
+  async atualizarSenha(novaSenha: string): Promise<void> {
+    if (!supabaseConfigured) {
+      console.log('[demo] Senha atualizada com sucesso');
+      return;
+    }
+
+    const resultadoSenha = validarSenha(novaSenha);
+    if (!resultadoSenha.valida) {
+      throw new Error(`SENHA_FRACA:${resultadoSenha.erros.join('|')}`);
+    }
+
+    const { data, error } = await supabase.auth.updateUser({ password: novaSenha });
+
+    if (error) {
+      await registrarAcao({
+        acao: 'atualizacao_senha_falha',
+        categoria: 'auth',
+        severidade: 'aviso',
+        detalhes: { motivo: error.message },
+        resultado: 'falha',
+      });
+      throw new Error(error.message);
+    }
+
+    await registrarAcao({
+      acao: 'senha_atualizada',
+      categoria: 'auth',
+      severidade: 'info',
+      resultado: 'sucesso',
+    });
+
+    // Confirmação por email (fire-and-forget)
+    if (data.user?.email) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('nome')
+        .eq('id', data.user.id)
+        .single();
+
+      emailService.senhaRedefinida({
+        para: data.user.email,
+        nome: profile?.nome ?? 'Usuário',
+      });
+    }
   },
 
   async logout(): Promise<void> {

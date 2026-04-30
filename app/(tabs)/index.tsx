@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -13,12 +13,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEventos } from '@/contexts/EventosContext';
 import ModalDenuncia from '@/components/ModalDenuncia';
 import MapaInterativo from '@/components/MapaInterativo';
 import { produtosService } from '@/services/produtos';
+import { localizacaoService, type Coordenadas } from '@/services/localizacao';
 import type { Evento, CategoriaEvento, FiltroTemporal, Produto } from '@/types';
 
 const ICON_MAP: Record<string, string> = {
@@ -59,7 +61,7 @@ const FILTROS_TEMPO: { value: FiltroTemporal; label: string; icon: string }[] = 
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { eventos, loading, carregarEventos, buscarEventos, filtroCategoria, filtrarPorCategoria, favoritos, favoritarEvento, desfavoritarEvento } = useEventos();
+  const { eventos, loading, carregarEventos, buscarEventos, buscarPorRaio, filtroCategoria, filtrarPorCategoria, favoritos, favoritarEvento, desfavoritarEvento } = useEventos();
 
   const [busca, setBusca] = useState('');
   const [filtroTempo, setFiltroTempo] = useState<FiltroTemporal>('semana');
@@ -72,13 +74,60 @@ export default function HomeScreen() {
   const [denunciaVisivel, setDenunciaVisivel] = useState(false);
   const [denunciaAlvoId, setDenunciaAlvoId] = useState('');
 
+  // ── Geocoding real ──────────────────────────────────────
+  const [posicaoAtual, setPosicaoAtual] = useState<Coordenadas | null>(null);
+  const [loadingGeo, setLoadingGeo] = useState(true);
+  const [eventosGeo, setEventosGeo] = useState<Evento[] | null>(null);
+  const posicaoRef = useRef<Coordenadas | null>(null);
+
+  // ── Filtro exclusivo mulheres ───────────────────────────
+  const [filtroSomenteMultheres, setFiltroSomenteMulheres] = useState(false);
+
+  // Inicializa GPS uma vez ao montar
   useEffect(() => {
-    carregarEventos();
+    inicializarGPS();
+  }, []);
+
+  // Recarrega lista quando categoria muda
+  useEffect(() => {
+    if (posicaoRef.current) {
+      buscarPorRaio(posicaoRef.current.lat, posicaoRef.current.lng, 10, { categoria: filtroCategoria })
+        .then((r) => setEventosGeo(r.dados))
+        .catch(() => { carregarEventos(); setEventosGeo(null); });
+    } else {
+      carregarEventos();
+    }
   }, [filtroCategoria]);
 
   useEffect(() => {
-    produtosService.listar().then(setProdutos);
+    produtosService.listar().then(r => setProdutos(r.dados));
   }, []);
+
+  const inicializarGPS = async () => {
+    setLoadingGeo(true);
+    const pos = await localizacaoService.obterPosicao();
+    setLoadingGeo(false);
+    if (pos) {
+      posicaoRef.current = pos;
+      setPosicaoAtual(pos);
+      const r = await buscarPorRaio(pos.lat, pos.lng, 10, { categoria: filtroCategoria });
+      setEventosGeo(r.dados);
+    }
+    // Se pos === null, o useEffect de filtroCategoria já chamou carregarEventos()
+  };
+
+  const atualizarLocalizacao = async () => {
+    localizacaoService.limparCache();
+    setLoadingGeo(true);
+    const pos = await localizacaoService.obterPosicao();
+    setLoadingGeo(false);
+    if (pos) {
+      posicaoRef.current = pos;
+      setPosicaoAtual(pos);
+      const r = await buscarPorRaio(pos.lat, pos.lng, 10, { categoria: filtroCategoria });
+      setEventosGeo(r.dados);
+    }
+  };
 
   const handleBusca = () => {
     buscarEventos(busca);
@@ -134,9 +183,15 @@ export default function HomeScreen() {
     }
   };
 
-  // R9 + filtro temporal
-  const eventosFiltrados = eventos.filter((ev) => {
+  // Base: usa lista geo (GPS real) quando disponível; senão usa context
+  const eventosBase = eventosGeo ?? eventos;
+
+  // R9 + filtro temporal + filtro "só para mim"
+  const eventosFiltrados = eventosBase.filter((ev) => {
+    // Eventos exclusivos para mulheres: oculta para não-femininas
     if (ev.exclusivo_mulheres && user?.genero !== 'feminino') return false;
+    // Filtro "só para mim": mostra apenas exclusivos (toggle de mulheres)
+    if (filtroSomenteMultheres && !ev.exclusivo_mulheres) return false;
     if (!filtrarPorTempo(ev)) return false;
     return true;
   });
@@ -167,12 +222,20 @@ export default function HomeScreen() {
             {new Date(item.data_inicio).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
           </Text>
         </View>
-        {item.destaque && (
-          <View style={styles.destaqueBadge}>
-            <Ionicons name="star" size={10} color={CORES.laranja} />
-            <Text style={styles.destaqueText}>Destaque</Text>
-          </View>
-        )}
+        <View style={styles.cardBadgeRow}>
+          {item.destaque && (
+            <View style={styles.destaqueBadge}>
+              <Ionicons name="star" size={10} color={CORES.laranja} />
+              <Text style={styles.destaqueText}>Destaque</Text>
+            </View>
+          )}
+          {item.exclusivo_mulheres && user?.genero === 'feminino' && (
+            <View style={styles.femaleBadge}>
+              <Ionicons name="female" size={10} color={CORES.branco} />
+              <Text style={styles.femaleBadgeText}>Exclusivo</Text>
+            </View>
+          )}
+        </View>
       </TouchableOpacity>
     );
   };
@@ -207,6 +270,30 @@ export default function HomeScreen() {
           />
         </View>
 
+        {/* Barra de status de localização GPS */}
+        <TouchableOpacity style={styles.gpsBar} onPress={atualizarLocalizacao} activeOpacity={0.7}>
+          <View style={styles.gpsBarLeft}>
+            {loadingGeo ? (
+              <ActivityIndicator size="small" color={CORES.laranja} style={{ marginRight: 6 }} />
+            ) : (
+              <Ionicons
+                name={posicaoAtual ? 'location' : 'location-outline'}
+                size={14}
+                color={posicaoAtual ? CORES.sucesso : CORES.cinza}
+                style={{ marginRight: 6 }}
+              />
+            )}
+            <Text style={[styles.gpsBarText, posicaoAtual && styles.gpsBarTextAtivo]}>
+              {loadingGeo
+                ? 'Localizando...'
+                : posicaoAtual
+                ? 'Raio: 10 km · Atualizar'
+                : 'Localização desativada · Toque para ativar'}
+            </Text>
+          </View>
+          <Ionicons name="refresh-outline" size={14} color={CORES.cinza} />
+        </TouchableOpacity>
+
         {/* Filtros de categoria - scroll horizontal */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtrosScroll} contentContainerStyle={styles.filtrosContent}>
           {FILTROS.map((f) => (
@@ -219,6 +306,25 @@ export default function HomeScreen() {
               <Text style={[styles.filtroChipText, filtroCategoria === f.value && styles.filtroChipTextAtivo]}>{f.label}</Text>
             </TouchableOpacity>
           ))}
+          {/* Chip "Só para mim" — visível apenas para usuárias femininas */}
+          {user?.genero === 'feminino' && (
+            <TouchableOpacity
+              style={[
+                styles.filtroChip,
+                filtroSomenteMultheres && styles.filtroChipMulher,
+              ]}
+              onPress={() => setFiltroSomenteMulheres((v) => !v)}
+            >
+              <Ionicons
+                name="female"
+                size={14}
+                color={filtroSomenteMultheres ? CORES.branco : CORES.laranja}
+              />
+              <Text style={[styles.filtroChipText, filtroSomenteMultheres && styles.filtroChipTextAtivo]}>
+                Só para mim
+              </Text>
+            </TouchableOpacity>
+          )}
         </ScrollView>
 
         {/* Filtros temporais (Hoje, Semana, Mês, Semestre) */}
@@ -309,15 +415,24 @@ export default function HomeScreen() {
           <View style={styles.modalContent}>
             {eventoSelecionado && (
               <>
-                {/* Hero com ícone da categoria */}
+                {/* Hero — foto de capa ou ícone da categoria */}
                 <View style={styles.modalHero}>
-                  <View style={styles.modalHeroIcon}>
-                    <Ionicons
-                      name={(ICON_MAP[eventoSelecionado.categoria] || 'calendar') as any}
-                      size={32}
-                      color={CORES.laranja}
+                  {eventoSelecionado.imagem_url ? (
+                    <Image
+                      source={{ uri: eventoSelecionado.imagem_url }}
+                      style={styles.modalHeroImg}
+                      contentFit="cover"
+                      transition={300}
                     />
-                  </View>
+                  ) : (
+                    <View style={styles.modalHeroIcon}>
+                      <Ionicons
+                        name={(ICON_MAP[eventoSelecionado.categoria] || 'calendar') as any}
+                        size={32}
+                        color={CORES.laranja}
+                      />
+                    </View>
+                  )}
                   {eventoSelecionado.destaque && (
                     <View style={styles.heroDestaque}>
                       <Ionicons name="star" size={12} color={CORES.laranja} />
@@ -455,11 +570,18 @@ const styles = StyleSheet.create({
   searchWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, marginHorizontal: SPACING.lg, height: 44, gap: SPACING.sm, marginBottom: SPACING.sm },
   searchInput: { flex: 1, color: CORES.branco, fontSize: FONT_SIZE.sm },
 
+  // GPS status bar
+  gpsBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: SPACING.lg, marginBottom: SPACING.sm, backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.md, paddingVertical: 8 },
+  gpsBarLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  gpsBarText: { color: CORES.cinza, fontSize: 11, fontWeight: '500' },
+  gpsBarTextAtivo: { color: CORES.sucesso },
+
   // Filtros
   filtrosScroll: { maxHeight: 44, marginBottom: SPACING.sm },
   filtrosContent: { paddingHorizontal: SPACING.lg, gap: SPACING.sm },
   filtroChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, height: 36 },
   filtroChipAtivo: { backgroundColor: CORES.roxo },
+  filtroChipMulher: { backgroundColor: CORES.laranja },
   filtroChipText: { color: CORES.cinza, fontSize: FONT_SIZE.xs },
   filtroChipTextAtivo: { color: CORES.branco },
 
@@ -490,8 +612,11 @@ const styles = StyleSheet.create({
   eventCardInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 3 },
   eventCardLocal: { color: CORES.cinzaClaro, fontSize: 11, flex: 1 },
   eventCardDate: { color: CORES.laranja, fontSize: 11, fontWeight: '600' },
-  destaqueBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6, alignSelf: 'flex-start', backgroundColor: CORES.background, borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3 },
+  cardBadgeRow: { flexDirection: 'row', gap: 4, flexWrap: 'wrap', marginTop: 6 },
+  destaqueBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: CORES.background, borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3 },
   destaqueText: { color: CORES.laranja, fontSize: 10, fontWeight: '600' },
+  femaleBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, alignSelf: 'flex-start', backgroundColor: CORES.laranja, borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3 },
+  femaleBadgeText: { color: CORES.branco, fontSize: 10, fontWeight: '700' },
   emptyText: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm, paddingHorizontal: SPACING.lg },
 
   // Product cards
@@ -507,7 +632,8 @@ const styles = StyleSheet.create({
   // Modal
   modalOverlay: { flex: 1, backgroundColor: CORES.overlay, justifyContent: 'center', padding: SPACING.lg },
   modalContent: { backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.xl, padding: SPACING.lg },
-  modalHero: { height: 120, backgroundColor: CORES.background, borderRadius: RADIUS.lg, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.md, position: 'relative' },
+  modalHero: { height: 140, backgroundColor: CORES.background, borderRadius: RADIUS.lg, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.md, position: 'relative', overflow: 'hidden' },
+  modalHeroImg: { width: '100%', height: 140, borderRadius: RADIUS.lg },
   modalHeroIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: CORES.backgroundCard, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: CORES.laranja },
   heroDestaque: { position: 'absolute', top: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.sm, paddingVertical: 4 },
   heroDestaqueText: { color: CORES.laranja, fontSize: 10, fontWeight: '600' },

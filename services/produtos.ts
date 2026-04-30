@@ -185,14 +185,14 @@ export const produtosService = {
   // ── CRIAR ──────────────────────────────────────────────
   async criar(dadosBrutos: CriarProdutoData): Promise<Produto> {
     if (!supabaseConfigured) {
-      const novo: Produto = {
+      const novo = {
         ...dadosBrutos,
         id: 'prod-' + Date.now(),
         criador_id: 'demo-pj',
         moeda: dadosBrutos.moeda || 'BRL',
-        status: 'ativo',
+        status: 'ativo' as const,
         criado_em: new Date().toISOString(),
-      };
+      } as Produto;
       DEMO_PRODUTOS.unshift(novo);
       return novo;
     }
@@ -304,7 +304,7 @@ export const produtosService = {
     if (!supabaseConfigured) {
       const idx = DEMO_PRODUTOS.findIndex(p => p.id === produtoId);
       if (idx === -1) throw new Error('Produto não encontrado');
-      DEMO_PRODUTOS[idx] = { ...DEMO_PRODUTOS[idx], ...updates };
+      DEMO_PRODUTOS[idx] = { ...DEMO_PRODUTOS[idx], ...updates } as Produto;
       return DEMO_PRODUTOS[idx];
     }
 

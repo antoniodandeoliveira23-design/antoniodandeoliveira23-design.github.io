@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import React, { useState, useEffect } from 'react';
 import {
   Alert,
   Dimensions,
@@ -16,6 +16,7 @@ import {
 import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { setDemoTipoConta } from '@/services/auth';
+import SocialLoginButtons from '@/components/SocialLoginButtons';
 import type { TipoConta } from '@/types';
 
 const { width } = Dimensions.get('window');
@@ -29,12 +30,19 @@ const DEMO_ACCOUNTS: { tipo: TipoConta; label: string; icon: string; desc: strin
 
 export default function Login() {
   const router = useRouter();
-  const { login, loginSocial, loading } = useAuth();
+  const { erro: erroParam } = useLocalSearchParams<{ erro?: string }>();
+  const { login, loginDemo, loginSocial, loading } = useAuth();
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [senhaVisivel, setSenhaVisivel] = useState(false);
   const [erro, setErro] = useState('');
   const [demoTipo, setDemoTipo] = useState<TipoConta>('pf');
+
+  useEffect(() => {
+    if (erroParam === 'oauth_desativado') {
+      setErro('Login social não está ativado ainda. Use e-mail/senha ou o acesso rápido abaixo.');
+    }
+  }, [erroParam]);
 
   const handleLogin = async () => {
     setErro('');
@@ -51,19 +59,25 @@ export default function Login() {
 
   const handleDemoLogin = async (tipo: TipoConta) => {
     setDemoTipo(tipo);
-    setDemoTipoConta(tipo);
     try {
-      await login('demo@agora.app', 'demo');
+      await loginDemo(tipo);
     } catch (e: any) {
       setErro(e.message || 'Erro ao entrar.');
     }
   };
 
   const handleSocial = async (provider: 'google' | 'apple' | 'x') => {
+    setErro('');
     try {
       await loginSocial(provider);
     } catch (e: any) {
-      Alert.alert('Erro', e.message || 'Erro no login social.');
+      const msg: string = e.message || '';
+      if (msg === 'LOGIN_CANCELADO') return; // usuário fechou o browser — silencioso
+      if (msg.includes('provider') || msg.includes('not enabled') || msg.includes('disabled')) {
+        setErro('Este método de login ainda não está ativo. Use e-mail e senha.');
+        return;
+      }
+      setErro(msg || 'Erro ao fazer login social. Tente novamente.');
     }
   };
 
@@ -101,23 +115,17 @@ export default function Login() {
           ))}
         </View>
 
+        {/* Login Social — botões com branding real */}
+        <SocialLoginButtons
+          onPress={handleSocial}
+          disabled={loading}
+          variant="full"
+        />
+
         <View style={styles.dividerRow}>
           <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>Ou entre com sua conta</Text>
+          <Text style={styles.dividerText}>Ou entre com e-mail</Text>
           <View style={styles.dividerLine} />
-        </View>
-
-        {/* Login Social */}
-        <View style={styles.socialRow}>
-          <TouchableOpacity style={styles.socialBtn} onPress={() => handleSocial('google')}>
-            <Text style={styles.socialBtnText}>G</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.socialBtn} onPress={() => handleSocial('apple')}>
-            <Ionicons name="logo-apple" size={20} color={CORES.branco} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.socialBtn} onPress={() => handleSocial('x')}>
-            <Text style={styles.socialBtnText}>X</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Form */}
@@ -157,6 +165,10 @@ export default function Login() {
           <Text style={styles.ctaBtnText}>{loading ? 'Entrando...' : 'Entrar'}</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity onPress={() => router.push('/recuperar-senha' as any)} style={styles.forgotBtn}>
+          <Text style={styles.forgotText}>Esqueceu a senha?</Text>
+        </TouchableOpacity>
+
         <View style={styles.footerRow}>
           <Text style={styles.footerText}>Não tem uma conta? </Text>
           <TouchableOpacity onPress={() => router.push('/register')}>
@@ -185,9 +197,6 @@ const styles = StyleSheet.create({
   demoCardLabel: { color: CORES.branco, fontSize: FONT_SIZE.xs, fontWeight: 'bold', textAlign: 'center' },
   demoCardDesc: { color: CORES.cinzaClaro, fontSize: 10, textAlign: 'center', marginTop: 2 },
 
-  socialRow: { flexDirection: 'row', gap: SPACING.md, marginBottom: SPACING.md },
-  socialBtn: { width: 56, height: 44, backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.sm, justifyContent: 'center', alignItems: 'center' },
-  socialBtnText: { color: CORES.branco, fontSize: FONT_SIZE.lg, fontWeight: 'bold' },
   dividerRow: { flexDirection: 'row', alignItems: 'center', width: '100%', maxWidth: 400, marginBottom: SPACING.md },
   dividerLine: { flex: 1, height: 1, backgroundColor: CORES.border },
   dividerText: { color: CORES.cinzaClaro, marginHorizontal: SPACING.sm, fontSize: FONT_SIZE.xs },
@@ -199,6 +208,8 @@ const styles = StyleSheet.create({
   ctaBtn: { width: '100%', maxWidth: 400, paddingVertical: 14, backgroundColor: CORES.roxo, borderRadius: RADIUS.sm, alignItems: 'center', marginTop: SPACING.sm, marginBottom: SPACING.lg },
   ctaBtnDisabled: { opacity: 0.6 },
   ctaBtnText: { color: CORES.branco, fontSize: FONT_SIZE.md, fontWeight: 'bold' },
+  forgotBtn: { marginBottom: SPACING.lg, alignSelf: 'flex-end', maxWidth: 400, width: '100%' },
+  forgotText: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm, textAlign: 'right' },
   footerRow: { flexDirection: 'row' },
   footerText: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm },
   footerLink: { color: CORES.roxoClaro, fontSize: FONT_SIZE.sm, fontWeight: '600' },
