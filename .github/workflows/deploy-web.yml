@@ -1,0 +1,66 @@
+# Deploy de BACKUP para GitHub Pages (manual only).
+# O deploy principal é o deploy.yml → Vercel.
+# Use este workflow apenas quando Vercel estiver indisponível.
+name: Deploy Web → GitHub Pages (backup)
+
+on:
+  # Disparo SOMENTE manual — não entra em conflito com deploy.yml (Vercel)
+  workflow_dispatch:
+
+# Permissão para escrever no branch gh-pages
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-web-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: 🚀 Build & Deploy
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: https://antoniodandeoliveira23-design.github.io
+    env:
+      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript — type check (gate rápido antes de buildar)
+        run: npm run typecheck
+
+      - name: Build — expo export web
+        run: npm run build
+
+      # SPA fallback: copia index.html → 404.html para roteamento client-side
+      - name: SPA fallback (404.html)
+        run: cp dist/index.html dist/404.html
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          # Mantém histórico limpo no branch gh-pages
+          force_orphan: true
+          # Mensagem de commit no gh-pages
+          commit_message: |
+            deploy: ${{ github.sha }}
+
+            Triggered by: ${{ github.actor }}
+            Ref: ${{ github.ref_name }}
+
+      - name: 🎉 URL publicada
+        run: echo "Deployed → https://antoniodandeoliveira23-design.github.io"

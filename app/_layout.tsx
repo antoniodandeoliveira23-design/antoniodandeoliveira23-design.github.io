@@ -5,13 +5,14 @@ import { ActivityIndicator, Platform, View } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { EventosProvider } from '@/contexts/EventosContext';
+import { ChatProvider } from '@/contexts/ChatContext';
 import { CORES } from '@/constants/theme';
 import { CSP_POLICY, sessionGuard } from '@/services/seguranca';
 
 SplashScreen.preventAutoHideAsync();
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { signed, loading, signOut } = useAuth();
+  const { signed, loading, logout } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
@@ -19,7 +20,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (signed && Platform.OS === 'web') {
       sessionGuard.iniciar(() => {
-        signOut?.();
+        logout?.();
         router.replace('/login');
       });
     } else {
@@ -72,11 +73,15 @@ function RootLayoutContent() {
         tag.setAttribute('content', content);
       };
 
-      // A05 — Fallback via meta tag (Vercel já envia estes como HTTP headers reais)
-      // Mantidos aqui para cobertura em dev local e builds não-Vercel
-      meta('Content-Security-Policy', CSP_POLICY, true);
-      meta('X-Frame-Options', 'DENY', true);
-      meta('X-Content-Type-Options', 'nosniff', true);
+      // A05 — CSP via meta tag aplicada APENAS em produção
+      // Em dev local o Metro HMR usa eval() que seria bloqueado pelo CSP
+      // Em produção o Vercel já envia os headers HTTP reais (vercel.json)
+      const isDev = typeof __DEV__ !== 'undefined' && __DEV__;
+      if (!isDev) {
+        meta('Content-Security-Policy', CSP_POLICY, true);
+        meta('X-Frame-Options', 'DENY', true);
+        meta('X-Content-Type-Options', 'nosniff', true);
+      }
 
       // PWA meta tags
       meta('mobile-web-app-capable', 'yes');
@@ -121,7 +126,9 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <EventosProvider>
-        <RootLayoutContent />
+        <ChatProvider>
+          <RootLayoutContent />
+        </ChatProvider>
       </EventosProvider>
     </AuthProvider>
   );

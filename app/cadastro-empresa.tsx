@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { validarCNPJ, formatarCNPJ } from '@/services/seguranca';
 
 export default function CadastroEmpresa() {
   const router = useRouter();
@@ -27,8 +28,11 @@ export default function CadastroEmpresa() {
       setErro('Preencha os campos obrigatórios: Razão Social, Nome Fantasia e CNPJ.');
       return;
     }
-    if (cnpj.replace(/\D/g, '').length !== 14) {
-      setErro('CNPJ deve ter 14 dígitos.');
+
+    // Validação completa: formato + dígitos verificadores
+    const validacaoCnpj = validarCNPJ(cnpj);
+    if (!validacaoCnpj.valido) {
+      setErro(validacaoCnpj.erro ?? 'CNPJ inválido.');
       return;
     }
 
@@ -77,9 +81,36 @@ export default function CadastroEmpresa() {
         </View>
 
         <Text style={styles.label}>CNPJ *</Text>
-        <View style={styles.inputWrapper}>
-          <TextInput style={styles.input} placeholder="00.000.000/0000-00" placeholderTextColor={CORES.cinza} value={cnpj} onChangeText={setCnpj} keyboardType="numeric" />
+        <View style={[styles.inputWrapper,
+          cnpj.replace(/\D/g,'').length === 14 && !validarCNPJ(cnpj).valido
+            ? { borderWidth: 1, borderColor: CORES.erro }
+            : cnpj.replace(/\D/g,'').length === 14 && validarCNPJ(cnpj).valido
+            ? { borderWidth: 1, borderColor: CORES.sucesso }
+            : null,
+        ]}>
+          <TextInput
+            style={styles.input}
+            placeholder="00.000.000/0000-00"
+            placeholderTextColor={CORES.cinza}
+            value={cnpj}
+            onChangeText={(t) => setCnpj(formatarCNPJ(t))}
+            keyboardType="number-pad"
+            maxLength={18}
+          />
+          {cnpj.replace(/\D/g,'').length === 14 && (
+            <Ionicons
+              name={validarCNPJ(cnpj).valido ? 'checkmark-circle' : 'close-circle'}
+              size={18}
+              color={validarCNPJ(cnpj).valido ? CORES.sucesso : CORES.erro}
+              style={{ marginLeft: 6 }}
+            />
+          )}
         </View>
+        {cnpj.replace(/\D/g,'').length === 14 && !validarCNPJ(cnpj).valido && (
+          <Text style={{ color: CORES.erro, fontSize: FONT_SIZE.xs, marginTop: -10, marginBottom: SPACING.sm }}>
+            {validarCNPJ(cnpj).erro}
+          </Text>
+        )}
 
         <Text style={styles.label}>Telefone comercial</Text>
         <View style={styles.inputWrapper}>

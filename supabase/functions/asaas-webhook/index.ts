@@ -13,10 +13,13 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { corsHeaders, handleCors, jsonResponse, errorResponse } from '../_shared/cors.ts';
 
-const ASAAS_TOKEN     = Deno.env.get('ASAAS_ACCESS_TOKEN') ?? '';
-const SUPABASE_URL    = Deno.env.get('SUPABASE_URL') ?? '';
+const ASAAS_TOKEN     = Deno.env.get('ASAAS_ACCESS_TOKEN')        ?? '';
+const SUPABASE_URL    = Deno.env.get('SUPABASE_URL')              ?? '';
 const SUPABASE_KEY    = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+const FUNCTIONS_URL   = `${SUPABASE_URL}/functions/v1`;
+const ALERT_SECRET    = Deno.env.get('ALERT_SECRET')              ?? '';
 
 // ─────────────────────────────────────────────────────
 // A08 — Validação de autenticidade do webhook
@@ -49,16 +52,52 @@ const STATUS_MAP: Record<string, string> = {
 // ─────────────────────────────────────────────────────
 // Handler principal
 // ─────────────────────────────────────────────────────
+
+/** Dispara email de recibo via email-transacional (fire-and-forget) */
+async function enviarEmailPagamento(
+  usuarioId: string,
+  planoId: string | null,
+  valor: number,
+  metodo: string,
+  idExterno: string,
+  planoTipo?: string,
+): Promise<void> {
+  if (!SUPABASE_URL || !ALERT_SECRET) return;
+  try {
+    await fetch(`${FUNCTIONS_URL}/email-transacional`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ALERT_SECRET}`,
+      },
+      body: JSON.stringify({
+        tipo:       'pagamento_confirmado',
+        usuario_id: usuarioId,
+        dados: {
+          plano_nome: planoId ?? 'Plano AGORA',
+          valor:      valor.toFixed(2).replace('.', ','),
+          validade:   calcularValidade(planoId ?? '', planoTipo),
+          metodo:     metodo ?? '',
+          id_externo: idExterno,
+        },
+        idempotency_key: `pag-${idExterno}`,
+      }),
+    });
+  } catch (err) {
+    console.warn('[asaas-webhook] Falha ao enviar email de recibo:', err);
+  }
+}
+
 serve(async (req) => {
-  // Só aceita POST
+  if (req.method === 'OPTIONS') return handleCors();
   if (req.method !== 'POST') {
-    return new Response('Method Not Allowed', { status: 405 });
+    return new Response('Method Not Allowed', { status: 405, headers: corsHeaders });
   }
 
   // A08 — Valida assinatura antes de qualquer processamento
   if (!validarAssinatura(req)) {
     console.error('[asaas-webhook] Assinatura inválida — requisição rejeitada');
-    return new Response('Unauthorized', { status: 401 });
+    return new Response('Unauthorized', { status: 401, headers: corsHeaders });
   }
 
   let payload: any;
@@ -110,14 +149,33 @@ serve(async (req) => {
 
       // Se pagamento confirmado — libera o plano do usuário
       if (novoStatus === 'pago' && pagamento.usuario_id && pagamento.plano_id) {
+        // Busca o tipo do plano para calcular validade corretamente
+        const { data: plano } = await supabase
+          .from('planos')
+          .select('tipo')
+          .eq('id', pagamento.plano_id)
+          .single();
+
+        const validade = calcularValidade(pagamento.plano_id, plano?.tipo);
+
         await supabase
           .from('profiles')
           .update({
-            plano_ativo:    pagamento.plano_id,
-            plano_valido_ate: calcularValidade(pagamento.plano_id),
-            atualizado_em:  new Date().toISOString(),
+            plano_ativo:      pagamento.plano_id,
+            plano_valido_ate: validade,
+            atualizado_em:    new Date().toISOString(),
           })
           .eq('id', pagamento.usuario_id);
+
+        // ── Fire-and-forget: email de recibo ──────────────
+        enviarEmailPagamento(
+          pagamento.usuario_id,
+          pagamento.plano_id,
+          payment.value,
+          payment.billingType ?? '',
+          payment.id,
+          plano?.tipo,
+        );
       }
 
       // Se vencido/cancelado — revoga o plano
@@ -145,10 +203,7 @@ serve(async (req) => {
     });
 
     console.log(`[asaas-webhook] ${event} processado — status: ${novoStatus}`);
-    return new Response(JSON.stringify({ ok: true, status: novoStatus }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ ok: true, status: novoStatus });
 
   } catch (err) {
     console.error('[asaas-webhook] Erro ao processar:', err);
@@ -163,24 +218,40 @@ serve(async (req) => {
       resultado:  'falha',
     }).catch(() => {});
 
-    return new Response(JSON.stringify({ error: 'Erro interno' }), { status: 500 });
+    return errorResponse('Erro interno', 500);
   }
 });
 
 // ─────────────────────────────────────────────────────
-// Calcula data de validade por tipo de plano
+// Mapa de validade por UUID real dos planos (dias)
+// Fonte: tabela `planos` do banco de produção
 // ─────────────────────────────────────────────────────
-function calcularValidade(planoId: string): string {
-  const agora = new Date();
-  // Inferência básica pelo ID — ajustar conforme IDs reais do banco
-  const meses = planoId?.includes('anual') ? 12
-    : planoId?.includes('trimestral') ? 3
-    : planoId?.includes('semanal') ? 0 : 1;
+const PLANOS_VALIDADE: Record<string, number> = {
+  'cbd84bb2-b351-40fa-acc5-d2f55feb9eee': 30,   // Avulso Básico
+  'c909438d-e517-4c3e-87de-aff1a2074d8e': 30,   // Mensal Pro
+  'fe218f6d-13e9-45b1-9f03-41cda44329b1': 90,   // Trimestral Business
+  '6b429c49-589c-4643-97c8-333828b00fcb': 365,  // Anual Enterprise
+};
 
-  if (meses === 0) {
-    agora.setDate(agora.getDate() + 7); // semanal
-  } else {
-    agora.setMonth(agora.getMonth() + meses);
-  }
+// Fallback por tipo — cobre planos criados futuramente
+const TIPO_VALIDADE: Record<string, number> = {
+  avulso:     30,
+  mensal:     30,
+  trimestral: 90,
+  anual:      365,
+  semanal:    7,
+};
+
+// ─────────────────────────────────────────────────────
+// Calcula data de validade por ID ou tipo do plano
+// ─────────────────────────────────────────────────────
+function calcularValidade(planoId: string, tipo?: string): string {
+  const agora  = new Date();
+  const dias   =
+    PLANOS_VALIDADE[planoId] ??
+    (tipo ? TIPO_VALIDADE[tipo] : undefined) ??
+    30; // fallback seguro: 30 dias
+
+  agora.setDate(agora.getDate() + dias);
   return agora.toISOString();
 }

@@ -3,6 +3,7 @@ import { Evento, CategoriaEvento } from '@/types';
 import type { CriarEventoData } from '@/contexts/EventosContext';
 import { validacaoSemantica } from './validacao-semantica';
 import { registrarAcao, registrarAnomalia } from './auditoria';
+import { emailService } from './email';
 
 // ─────────────────────────────────────────────────────────
 // Tipos
@@ -16,6 +17,7 @@ export interface OpcoesPaginacao {
 export interface OpcoesFiltro extends OpcoesPaginacao {
   categoria?: CategoriaEvento | null;
   busca?: string;
+  exclusivoMulheres?: boolean;
 }
 
 export interface RespostaPaginada<T> {
@@ -59,6 +61,8 @@ const DEMO_EVENTOS: Evento[] = [
   { id: '2', criador_id: 'demo', nome: 'Feira de Artesanato', descricao: 'Artesanato local e comidas típicas.', local: 'Praça Central', lat: -12.7380, lng: -60.1430, categoria: 'feira', data_inicio: new Date(Date.now() + 86400000).toISOString(), comercial: false, exclusivo_mulheres: false, status: 'aprovado', pago: true, destaque: true, criado_em: new Date().toISOString() },
   { id: '3', criador_id: 'demo', nome: 'Teatro Infantil', descricao: 'Peça teatral para crianças.', local: 'Teatro Municipal', lat: -12.7420, lng: -60.1500, categoria: 'cultura', data_inicio: new Date(Date.now() + 172800000).toISOString(), comercial: false, exclusivo_mulheres: false, status: 'aprovado', pago: true, destaque: false, criado_em: new Date().toISOString() },
   { id: '4', criador_id: 'demo', nome: 'Workshop de Fotografia', descricao: 'Aprenda técnicas de fotografia.', local: 'Espaço Cultural', lat: -12.7390, lng: -60.1440, categoria: 'educacao', data_inicio: new Date(Date.now() + 259200000).toISOString(), comercial: false, exclusivo_mulheres: false, status: 'aprovado', pago: true, destaque: false, criado_em: new Date().toISOString() },
+  { id: '5', criador_id: 'demo', nome: 'Encontro de Empreendedoras', descricao: 'Roda de conversa e networking exclusivo para mulheres empreendedoras de Vilhena.', local: 'Hub de Inovação', lat: -12.7415, lng: -60.1465, categoria: 'negocios', data_inicio: new Date(Date.now() + 345600000).toISOString(), comercial: false, exclusivo_mulheres: true, status: 'aprovado', pago: true, destaque: true, criado_em: new Date().toISOString() },
+  { id: '6', criador_id: 'demo', nome: 'Aula de Defesa Pessoal Feminina', descricao: 'Técnicas de autodefesa e empoderamento para mulheres.', local: 'Academia Central', lat: -12.7400, lng: -60.1450, categoria: 'esporte', data_inicio: new Date(Date.now() + 432000000).toISOString(), comercial: false, exclusivo_mulheres: true, status: 'aprovado', pago: true, destaque: false, criado_em: new Date().toISOString() },
 ];
 
 // ─────────────────────────────────────────────────────────
@@ -83,12 +87,13 @@ export const eventosService = {
 
   // ── LISTAR com filtro + paginação ──────────────────────
   async listar(opcoes: OpcoesFiltro = {}): Promise<RespostaPaginada<Evento>> {
-    const { categoria, busca, pagina = 1, porPagina = 20 } = opcoes;
+    const { categoria, busca, pagina = 1, porPagina = 20, exclusivoMulheres } = opcoes;
     const offset = (pagina - 1) * porPagina;
 
     if (!supabaseConfigured) {
       let result = [...DEMO_EVENTOS];
       if (categoria) result = result.filter((e) => e.categoria === categoria);
+      if (exclusivoMulheres) result = result.filter((e) => e.exclusivo_mulheres);
       if (busca?.trim()) {
         const b = busca.toLowerCase();
         result = result.filter(
@@ -129,13 +134,14 @@ export const eventosService = {
     lat: number,
     lng: number,
     raioKm: number = 10,
-    opcoes: { categoria?: CategoriaEvento | null } & OpcoesPaginacao = {}
+    opcoes: { categoria?: CategoriaEvento | null; exclusivoMulheres?: boolean } & OpcoesPaginacao = {}
   ): Promise<RespostaPaginada<EventoComDistancia>> {
-    const { categoria, pagina = 1, porPagina = 20 } = opcoes;
+    const { categoria, pagina = 1, porPagina = 20, exclusivoMulheres } = opcoes;
 
     if (!supabaseConfigured) {
       const comDistancia = DEMO_EVENTOS
         .filter((e) => !categoria || e.categoria === categoria)
+        .filter((e) => !exclusivoMulheres || e.exclusivo_mulheres)
         .map((e) => ({ ...e, distancia_km: haversineKm(lat, lng, e.lat, e.lng) }))
         .filter((e) => e.distancia_km <= raioKm)
         .sort((a, b) => a.distancia_km - b.distancia_km);
@@ -152,20 +158,25 @@ export const eventosService = {
     }
 
     const { data, error } = await supabase.rpc('eventos_por_raio', {
-      _lat: lat,
-      _lng: lng,
-      _raio_km: raioKm,
-      _categoria: categoria ?? null,
-      _pagina: pagina,
-      _por_pagina: porPagina,
+      lat,
+      lng,
+      raio_km:    raioKm,
+      p_categoria: categoria ?? null,
+      p_pagina:   pagina,
+      p_por_pagina: porPagina,
     });
 
     if (error) throw new Error(error.message);
 
-    const total = data?.[0]?.total_count ?? 0;
-    const dados = (data || []).map(({ total_count, ...e }: any) => e as EventoComDistancia);
+    // A RPC retorna as linhas dentro do raio; mapeamos e_lat/e_lng → lat/lng
+    const dados: EventoComDistancia[] = (data || []).map((row: any) => ({
+      ...row,
+      lat: row.e_lat,
+      lng: row.e_lng,
+    }));
 
-    return { dados, total, pagina, porPagina, temMais: (pagina - 1) * porPagina + dados.length < total };
+    const total = dados.length; // sem paginação total no RPC; use count separado se necessário
+    return { dados, total, pagina, porPagina, temMais: dados.length === porPagina };
   },
 
   // ── OBTER por ID ───────────────────────────────────────
@@ -244,6 +255,17 @@ export const eventosService = {
     }
 
     await registrarAcao({ acao: 'evento_criado', categoria: 'evento', severidade: 'info', tabela: 'eventos', registroId: data.id, detalhes: { nome: data.nome, status: data.status, comercial: data.comercial, tipo_conta: profile?.tipo_conta }, resultado: 'sucesso' });
+
+    // ── Email de confirmação para eventos PJ (pendentes) ───
+    if (data.status === 'pendente') {
+      emailService.eventoPendente({
+        usuarioId:   user.id,
+        eventoNome:  data.nome,
+        local:       data.local,
+        dataInicio:  data.data_inicio,
+      });
+    }
+
     return data;
   },
 

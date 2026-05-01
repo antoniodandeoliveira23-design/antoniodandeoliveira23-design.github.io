@@ -2,16 +2,23 @@ import { useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { CORES } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function SplashScreen() {
   const router = useRouter();
+  const { signed, loading } = useAuth();
 
   useEffect(() => {
+    if (loading) return; // Aguarda o AuthContext carregar o usuário
     const timer = setTimeout(() => {
-      router.replace('/onboarding');
-    }, 2000);
+      if (signed) {
+        router.replace('/(tabs)');   // Já logado → vai direto para o app
+      } else {
+        router.replace('/onboarding'); // Primeiro acesso → onboarding
+      }
+    }, 1500);
     return () => clearTimeout(timer);
-  }, []);
+  }, [signed, loading]);
 
   return (
     <View style={styles.container}>

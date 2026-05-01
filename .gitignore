@@ -30,8 +30,10 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
-.env*.local
+# local env files — nunca commitar credenciais
+.env
+.env.*
+!.env.example
 
 # typescript
 *.tsbuildinfo
@@ -42,3 +44,16 @@ app-example
 /ios
 /android
 .vercel
+
+# EAS / Google Play credentials (nunca commitar)
+google-service-account.json
+*.mobileprovision
+
+# Claude Code session artifacts (temp files)
+.claude/
+pages_result.json
+patch_repo.json
+repo_info.json
+run_status.json
+runs.json
+supabase/.temp/

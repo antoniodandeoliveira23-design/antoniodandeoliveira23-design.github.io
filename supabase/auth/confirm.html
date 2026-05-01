@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Confirme seu email — AGORA</title>
+  <!--
+    Template: Confirmação de email (signup)
+    Supabase Dashboard → Authentication → Email Templates → Confirm signup
+    Variáveis disponíveis: {{ .ConfirmationURL }} {{ .Email }} {{ .SiteURL }}
+  -->
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #07070E;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      width: 100%;
+      padding: 40px 16px;
+      background-color: #07070E;
+    }
+    .card {
+      max-width: 520px;
+      margin: 0 auto;
+      background-color: #0F0F1A;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .header {
+      background: linear-gradient(135deg, #6C3FC5 0%, #FF6B00 100%);
+      padding: 36px 32px 28px;
+      text-align: center;
+    }
+    .logo-text {
+      font-size: 28px;
+      font-weight: 900;
+      color: #FFFFFF;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+    }
+    .logo-sub {
+      font-size: 12px;
+      color: rgba(255,255,255,0.65);
+      margin-top: 6px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .body {
+      padding: 36px 32px;
+    }
+    .icon-wrap {
+      width: 64px;
+      height: 64px;
+      background: rgba(108, 63, 197, 0.15);
+      border-radius: 50%;
+      margin: 0 auto 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      text-align: center;
+      line-height: 64px;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #FFFFFF;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    p {
+      font-size: 15px;
+      line-height: 1.7;
+      color: #9CA3AF;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .highlight {
+      color: #C4B5FD;
+      font-weight: 500;
+    }
+    .btn-wrap {
+      text-align: center;
+      margin: 32px 0 28px;
+    }
+    .btn {
+      display: inline-block;
+      background: linear-gradient(135deg, #6C3FC5, #8B5CF6);
+      color: #FFFFFF !important;
+      font-size: 15px;
+      font-weight: 700;
+      padding: 14px 40px;
+      border-radius: 12px;
+      text-decoration: none;
+      letter-spacing: 0.5px;
+    }
+    .divider {
+      border: none;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      margin: 24px 0;
+    }
+    .link-fallback {
+      font-size: 12px;
+      color: #6B7280;
+      text-align: center;
+      word-break: break-all;
+    }
+    .link-fallback a {
+      color: #8B5CF6;
+      text-decoration: none;
+    }
+    .expiry-note {
+      font-size: 12px;
+      color: #6B7280;
+      text-align: center;
+      margin-top: 16px;
+    }
+    .footer {
+      background: #0A0A14;
+      border-top: 1px solid rgba(255,255,255,0.04);
+      padding: 20px 32px;
+      text-align: center;
+    }
+    .footer p {
+      font-size: 11px;
+      color: #4B5563;
+      margin: 0;
+    }
+    .footer a {
+      color: #6B7280;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+
+      <!-- Cabeçalho com gradiente da marca -->
+      <div class="header">
+        <div class="logo-text">AGORA</div>
+        <div class="logo-sub">Vilhena · Rondônia</div>
+      </div>
+
+      <!-- Corpo -->
+      <div class="body">
+        <div class="icon-wrap">✉️</div>
+
+        <h1>Confirme seu email</h1>
+
+        <p>
+          Você está a um passo de entrar no <span class="highlight">AGORA</span> —
+          a plataforma de eventos de Vilhena.
+        </p>
+        <p>
+          Clique no botão abaixo para confirmar seu endereço
+          <span class="highlight">{{ .Email }}</span> e ativar sua conta.
+        </p>
+
+        <div class="btn-wrap">
+          <a href="{{ .ConfirmationURL }}" class="btn">
+            Confirmar meu email
+          </a>
+        </div>
+
+        <p class="expiry-note">⏳ Este link expira em 24 horas.</p>
+
+        <hr class="divider" />
+
+        <p class="link-fallback">
+          Se o botão não funcionar, copie e cole este link no navegador:<br />
+          <a href="{{ .ConfirmationURL }}">{{ .ConfirmationURL }}</a>
+        </p>
+
+        <p class="expiry-note" style="margin-top: 20px;">
+          Se você não criou uma conta no AGORA, ignore este email com segurança.
+        </p>
+      </div>
+
+      <!-- Rodapé -->
+      <div class="footer">
+        <p>
+          AGORA &copy; {{ .CurrentYear }} &nbsp;|&nbsp;
+          Vilhena, RO &nbsp;|&nbsp;
+          <a href="{{ .SiteURL }}">agora-vilhena.vercel.app</a>
+        </p>
+        <p style="margin-top: 6px;">
+          Você recebeu este email porque alguém usou seu endereço para criar uma conta.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

@@ -21,6 +21,7 @@ export interface CriarEventoData {
   data_inicio: string;
   data_fim?: string;
   exclusivo_mulheres: boolean;
+  imagem_url?: string;
 }
 
 export interface EstadoPaginacao {

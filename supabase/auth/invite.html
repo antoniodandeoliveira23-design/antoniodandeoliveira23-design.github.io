@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Você foi convidado — AGORA</title>
+  <!--
+    Template: Convite de usuário (admin invite)
+    Supabase Dashboard → Authentication → Email Templates → Invite user
+    Variáveis disponíveis: {{ .ConfirmationURL }} {{ .Email }} {{ .SiteURL }}
+  -->
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #07070E;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      width: 100%;
+      padding: 40px 16px;
+      background-color: #07070E;
+    }
+    .card {
+      max-width: 520px;
+      margin: 0 auto;
+      background-color: #0F0F1A;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .header {
+      background: linear-gradient(135deg, #6C3FC5 0%, #FF6B00 100%);
+      padding: 36px 32px 28px;
+      text-align: center;
+      position: relative;
+    }
+    .logo-text {
+      font-size: 28px;
+      font-weight: 900;
+      color: #FFFFFF;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+    }
+    .logo-sub {
+      font-size: 12px;
+      color: rgba(255,255,255,0.65);
+      margin-top: 6px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .body {
+      padding: 36px 32px;
+    }
+    .icon-wrap {
+      width: 64px;
+      height: 64px;
+      background: rgba(255, 122, 0, 0.12);
+      border-radius: 50%;
+      margin: 0 auto 24px;
+      font-size: 28px;
+      text-align: center;
+      line-height: 64px;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #FFFFFF;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    p {
+      font-size: 15px;
+      line-height: 1.7;
+      color: #9CA3AF;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .highlight {
+      color: #FCA974;
+      font-weight: 600;
+    }
+    .features {
+      display: grid;
+      margin: 28px 0;
+      gap: 12px;
+    }
+    .feature {
+      display: flex;
+      align-items: center;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .feature-icon {
+      font-size: 20px;
+      margin-right: 14px;
+      flex-shrink: 0;
+    }
+    .feature-text {
+      font-size: 13px;
+      color: #D1D5DB;
+      line-height: 1.4;
+    }
+    .feature-text strong {
+      color: #fff;
+      display: block;
+      margin-bottom: 2px;
+    }
+    .btn-wrap {
+      text-align: center;
+      margin: 32px 0 20px;
+    }
+    .btn {
+      display: inline-block;
+      background: linear-gradient(135deg, #FF6B00, #FF8C3A);
+      color: #FFFFFF !important;
+      font-size: 16px;
+      font-weight: 700;
+      padding: 16px 48px;
+      border-radius: 12px;
+      text-decoration: none;
+      letter-spacing: 0.5px;
+    }
+    .expiry-note {
+      font-size: 12px;
+      color: #6B7280;
+      text-align: center;
+      margin-top: 10px;
+    }
+    .divider {
+      border: none;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      margin: 24px 0;
+    }
+    .link-fallback {
+      font-size: 12px;
+      color: #6B7280;
+      text-align: center;
+      word-break: break-all;
+    }
+    .link-fallback a {
+      color: #FF8C3A;
+      text-decoration: none;
+    }
+    .footer {
+      background: #0A0A14;
+      border-top: 1px solid rgba(255,255,255,0.04);
+      padding: 20px 32px;
+      text-align: center;
+    }
+    .footer p {
+      font-size: 11px;
+      color: #4B5563;
+      margin: 0;
+    }
+    .footer a {
+      color: #6B7280;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+
+      <!-- Cabeçalho -->
+      <div class="header">
+        <div class="logo-text">AGORA</div>
+        <div class="logo-sub">Vilhena · Rondônia</div>
+      </div>
+
+      <!-- Corpo -->
+      <div class="body">
+        <div class="icon-wrap">🎉</div>
+
+        <h1>Você foi convidado!</h1>
+
+        <p>
+          Você recebeu um convite para ingressar no <span class="highlight">AGORA</span>,
+          a plataforma oficial de eventos de Vilhena.
+        </p>
+        <p style="margin-bottom: 4px;">
+          Com o AGORA você pode:
+        </p>
+
+        <!-- Features -->
+        <div class="features">
+          <div class="feature">
+            <div class="feature-icon">🗺️</div>
+            <div class="feature-text">
+              <strong>Descobrir eventos próximos</strong>
+              Shows, feiras, festas e muito mais em Vilhena.
+            </div>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">📣</div>
+            <div class="feature-text">
+              <strong>Divulgar seu negócio</strong>
+              Crie eventos e alcance toda a cidade gratuitamente.
+            </div>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">💬</div>
+            <div class="feature-text">
+              <strong>Conectar com a comunidade</strong>
+              Chat direto com organizadores e participantes.
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-wrap">
+          <a href="{{ .ConfirmationURL }}" class="btn">
+            Aceitar convite
+          </a>
+        </div>
+
+        <p class="expiry-note">⏳ Este convite expira em 7 dias.</p>
+
+        <hr class="divider" />
+
+        <p class="link-fallback">
+          Se o botão não funcionar, copie e cole este link no navegador:<br />
+          <a href="{{ .ConfirmationURL }}">{{ .ConfirmationURL }}</a>
+        </p>
+
+        <p style="font-size: 12px; color: #6B7280; text-align: center; margin-top: 16px;">
+          Se você não esperava receber este convite, pode ignorar este email com segurança.
+        </p>
+      </div>
+
+      <!-- Rodapé -->
+      <div class="footer">
+        <p>
+          AGORA &copy; {{ .CurrentYear }} &nbsp;|&nbsp;
+          Vilhena, RO &nbsp;|&nbsp;
+          <a href="{{ .SiteURL }}">agora-vilhena.vercel.app</a>
+        </p>
+        <p style="margin-top: 6px;">
+          Convite enviado para <strong style="color:#6B7280">{{ .Email }}</strong>
+        </p>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

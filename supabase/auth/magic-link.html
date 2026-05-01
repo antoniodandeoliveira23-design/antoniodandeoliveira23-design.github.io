@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Acesso rápido — AGORA</title>
+  <!--
+    Template: Magic link (login sem senha)
+    Supabase Dashboard → Authentication → Email Templates → Magic Link
+    Variáveis disponíveis: {{ .ConfirmationURL }} {{ .Email }} {{ .SiteURL }}
+  -->
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #07070E;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      width: 100%;
+      padding: 40px 16px;
+      background-color: #07070E;
+    }
+    .card {
+      max-width: 520px;
+      margin: 0 auto;
+      background-color: #0F0F1A;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .header {
+      background: linear-gradient(135deg, #6C3FC5 0%, #FF6B00 100%);
+      padding: 36px 32px 28px;
+      text-align: center;
+    }
+    .logo-text {
+      font-size: 28px;
+      font-weight: 900;
+      color: #FFFFFF;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+    }
+    .logo-sub {
+      font-size: 12px;
+      color: rgba(255,255,255,0.65);
+      margin-top: 6px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .body {
+      padding: 36px 32px;
+    }
+    .icon-wrap {
+      width: 64px;
+      height: 64px;
+      background: rgba(108, 63, 197, 0.15);
+      border-radius: 50%;
+      margin: 0 auto 24px;
+      font-size: 28px;
+      text-align: center;
+      line-height: 64px;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #FFFFFF;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    p {
+      font-size: 15px;
+      line-height: 1.7;
+      color: #9CA3AF;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .highlight {
+      color: #C4B5FD;
+      font-weight: 500;
+    }
+    .btn-wrap {
+      text-align: center;
+      margin: 32px 0 20px;
+    }
+    .btn {
+      display: inline-block;
+      background: linear-gradient(135deg, #6C3FC5, #8B5CF6);
+      color: #FFFFFF !important;
+      font-size: 16px;
+      font-weight: 700;
+      padding: 16px 48px;
+      border-radius: 12px;
+      text-decoration: none;
+      letter-spacing: 0.5px;
+    }
+    .expiry-badge {
+      display: inline-block;
+      background: rgba(139, 92, 246, 0.12);
+      border: 1px solid rgba(139, 92, 246, 0.25);
+      border-radius: 20px;
+      padding: 6px 16px;
+      font-size: 12px;
+      color: #A78BFA;
+      margin: 0 auto 24px;
+      text-align: center;
+    }
+    .expiry-wrap {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .steps {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin: 24px 0;
+    }
+    .step {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 14px;
+    }
+    .step:last-child {
+      margin-bottom: 0;
+    }
+    .step-num {
+      width: 24px;
+      height: 24px;
+      background: linear-gradient(135deg, #6C3FC5, #8B5CF6);
+      border-radius: 50%;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      text-align: center;
+      line-height: 24px;
+      flex-shrink: 0;
+      margin-right: 12px;
+      margin-top: 1px;
+    }
+    .step-text {
+      font-size: 13px;
+      color: #9CA3AF;
+      line-height: 1.5;
+    }
+    .divider {
+      border: none;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      margin: 24px 0;
+    }
+    .link-fallback {
+      font-size: 12px;
+      color: #6B7280;
+      text-align: center;
+      word-break: break-all;
+    }
+    .link-fallback a {
+      color: #8B5CF6;
+      text-decoration: none;
+    }
+    .footer {
+      background: #0A0A14;
+      border-top: 1px solid rgba(255,255,255,0.04);
+      padding: 20px 32px;
+      text-align: center;
+    }
+    .footer p {
+      font-size: 11px;
+      color: #4B5563;
+      margin: 0;
+    }
+    .footer a {
+      color: #6B7280;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+
+      <!-- Cabeçalho -->
+      <div class="header">
+        <div class="logo-text">AGORA</div>
+        <div class="logo-sub">Vilhena · Rondônia</div>
+      </div>
+
+      <!-- Corpo -->
+      <div class="body">
+        <div class="icon-wrap">⚡</div>
+
+        <h1>Seu link de acesso</h1>
+
+        <p>
+          Clique no botão abaixo para entrar no AGORA
+          com o email <span class="highlight">{{ .Email }}</span>.
+          Sem senha necessária.
+        </p>
+
+        <div class="btn-wrap">
+          <a href="{{ .ConfirmationURL }}" class="btn">
+            Entrar no AGORA
+          </a>
+        </div>
+
+        <div class="expiry-wrap">
+          <span class="expiry-badge">⏳ Válido por 1 hora — uso único</span>
+        </div>
+
+        <!-- Passos de segurança -->
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-text">Clique no botão acima <strong style="color:#fff">no mesmo dispositivo</strong> que fez a solicitação.</div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-text">Você será redirecionado automaticamente para o app AGORA.</div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-text">Este link <strong style="color:#fff">expira em 1 hora</strong> e só pode ser usado uma vez.</div>
+          </div>
+        </div>
+
+        <p style="font-size: 13px; color: #6B7280; margin-top: 8px;">
+          Não solicitou este acesso? Ignore este email — sua conta não foi alterada.
+        </p>
+
+        <hr class="divider" />
+
+        <p class="link-fallback">
+          Se o botão não funcionar, copie e cole este link no navegador:<br />
+          <a href="{{ .ConfirmationURL }}">{{ .ConfirmationURL }}</a>
+        </p>
+      </div>
+
+      <!-- Rodapé -->
+      <div class="footer">
+        <p>
+          AGORA &copy; {{ .CurrentYear }} &nbsp;|&nbsp;
+          Vilhena, RO &nbsp;|&nbsp;
+          <a href="{{ .SiteURL }}">agora-vilhena.vercel.app</a>
+        </p>
+        <p style="margin-top: 6px;">
+          Este é um email automático enviado pelo sistema AGORA.
+          Por favor, não responda a esta mensagem.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

@@ -2,8 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { Platform, StyleSheet } from 'react-native';
 import { CORES } from '@/constants/theme';
+import { useChat } from '@/contexts/ChatContext';
 
 export default function TabLayout() {
+  const { totalNaoLidas } = useChat();
+
   return (
     <Tabs
       screenOptions={{
@@ -39,6 +42,8 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="chatbubbles" size={size} color={color} />
           ),
+          tabBarBadge: totalNaoLidas > 0 ? (totalNaoLidas > 9 ? '9+' : totalNaoLidas) : undefined,
+          tabBarBadgeStyle: { backgroundColor: CORES.laranja, fontSize: 10, minWidth: 16, height: 16, lineHeight: 16 },
         }}
       />
       <Tabs.Screen

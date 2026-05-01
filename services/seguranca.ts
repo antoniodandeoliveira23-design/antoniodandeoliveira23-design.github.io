@@ -237,17 +237,26 @@ const TIMEOUT_INATIVIDADE_MS = 30 * 60_000; // 30 minutos
 let _timerTimeout: ReturnType<typeof setTimeout> | null = null;
 let _callbackLogout: (() => void) | null = null;
 
+// Fix: armazena referência da função handler para poder removê-la depois
+// Sem isso, cada chamada a iniciar() vaza 4 listeners permanentemente
+let _guardHandler: (() => void) | null = null;
+const _GUARD_EVENTOS = ['mousedown', 'keydown', 'touchstart', 'scroll'] as const;
+
 export const sessionGuard = {
   /** Inicializa o guard — chamar após login bem-sucedido */
   iniciar(onLogout: () => void): void {
     if (typeof window === 'undefined') return;
+
+    // Remove listeners anteriores antes de registrar novos (evita acúmulo)
+    this.parar();
+
     _callbackLogout = onLogout;
     this._resetarTimer();
 
-    // Reseta timer em qualquer interação do usuário
-    const eventos = ['mousedown', 'keydown', 'touchstart', 'scroll'];
-    eventos.forEach((ev) =>
-      window.addEventListener(ev, () => this._resetarTimer(), { passive: true })
+    // Armazena referência nomeada — única função, reutilizada em todos os eventos
+    _guardHandler = () => this._resetarTimer();
+    _GUARD_EVENTOS.forEach((ev) =>
+      window.addEventListener(ev, _guardHandler!, { passive: true }),
     );
   },
 
@@ -258,11 +267,21 @@ export const sessionGuard = {
     }, TIMEOUT_INATIVIDADE_MS);
   },
 
-  /** Para o guard — chamar no logout */
+  /** Para o guard e remove todos os event listeners — chamar no logout */
   parar(): void {
-    if (_timerTimeout) clearTimeout(_timerTimeout);
-    _timerTimeout = null;
+    if (_timerTimeout) {
+      clearTimeout(_timerTimeout);
+      _timerTimeout = null;
+    }
     _callbackLogout = null;
+
+    // Remove listeners usando a referência salva (fix do memory leak)
+    if (_guardHandler) {
+      _GUARD_EVENTOS.forEach((ev) =>
+        window.removeEventListener(ev, _guardHandler!),
+      );
+      _guardHandler = null;
+    }
   },
 };
 
@@ -282,3 +301,72 @@ export const CSP_POLICY = [
   "base-uri 'self'",
   "form-action 'self'",
 ].join('; ');
+
+// ═══════════════════════════════════════════════════════
+// CNPJ — Validação com dígitos verificadores + formatação
+// ═══════════════════════════════════════════════════════
+
+export interface ResultadoCNPJ {
+  valido: boolean;
+  formatado: string;  // "##.###.###/####-##"
+  erro?: string;
+}
+
+/**
+ * Aplica máscara de CNPJ em tempo real (para usar no onChangeText).
+ * Trunca em 18 caracteres formatados (= 14 dígitos).
+ */
+export function formatarCNPJ(valor: string): string {
+  const n = valor.replace(/\D/g, '').substring(0, 14);
+  return n
+    .replace(/^(\d{2})(\d)/, '$1.$2')
+    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1/$2')
+    .replace(/(\d{4})(\d)/, '$1-$2');
+}
+
+/**
+ * Valida CNPJ completo: formato, dígitos repetidos e dígitos verificadores.
+ * Aceita com ou sem formatação (pontos, barras, hífens).
+ */
+export function validarCNPJ(cnpj: string): ResultadoCNPJ {
+  const numeros = cnpj.replace(/\D/g, '');
+  const formatado = formatarCNPJ(numeros);
+
+  if (!numeros) {
+    return { valido: false, formatado, erro: 'Informe o CNPJ.' };
+  }
+  if (numeros.length !== 14) {
+    return { valido: false, formatado, erro: 'CNPJ deve ter 14 dígitos.' };
+  }
+  // Todos os dígitos iguais (ex: 00000000000000) — inválido
+  if (/^(\d)\1{13}$/.test(numeros)) {
+    return { valido: false, formatado, erro: 'CNPJ inválido.' };
+  }
+
+  // ── Cálculo do 1º dígito verificador ──────────────────
+  let soma = 0;
+  let peso = 5;
+  for (let i = 0; i < 12; i++) {
+    soma += parseInt(numeros[i]) * peso;
+    peso = peso === 2 ? 9 : peso - 1;
+  }
+  const d1 = soma % 11 < 2 ? 0 : 11 - (soma % 11);
+  if (parseInt(numeros[12]) !== d1) {
+    return { valido: false, formatado, erro: 'CNPJ inválido.' };
+  }
+
+  // ── Cálculo do 2º dígito verificador ──────────────────
+  soma = 0;
+  peso = 6;
+  for (let i = 0; i < 13; i++) {
+    soma += parseInt(numeros[i]) * peso;
+    peso = peso === 2 ? 9 : peso - 1;
+  }
+  const d2 = soma % 11 < 2 ? 0 : 11 - (soma % 11);
+  if (parseInt(numeros[13]) !== d2) {
+    return { valido: false, formatado, erro: 'CNPJ inválido.' };
+  }
+
+  return { valido: true, formatado };
+}

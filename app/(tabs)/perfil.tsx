@@ -1,4 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import {
@@ -12,6 +13,8 @@ import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEventos } from '@/contexts/EventosContext';
 import { _demoPendentes } from '@/services/eventos';
+import { storageService } from '@/services/storage';
+import ImageUpload from '@/components/ImageUpload';
 
 const MENU_ITEMS = [
   { icon: 'person-outline', label: 'Editar perfil', route: '/editar-perfil' },
@@ -33,10 +36,18 @@ const TIPO_LABEL: Record<string, string> = {
 
 export default function PerfilScreen() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const { favoritos, eventos, carregarEventos } = useEventos();
 
   useEffect(() => { carregarEventos(); }, []);
+
+  const handleAvatarUpload = async (url: string) => {
+    try {
+      await updateUser({ avatar_url: url } as any);
+    } catch {
+      // silencioso — o preview já foi atualizado pelo componente
+    }
+  };
 
   const todosEventos = [...eventos, ..._demoPendentes];
   const meusEventos = todosEventos.filter(ev => ev.criador_id === user?.id || ev.criador_id === 'demo' || ev.criador_id === 'demo-pj');
@@ -51,9 +62,17 @@ export default function PerfilScreen() {
       <Text style={styles.titulo}>Perfil</Text>
 
       <View style={styles.avatarSection}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{user?.nome?.charAt(0)?.toUpperCase() || 'U'}</Text>
-        </View>
+        <ImageUpload
+          bucket="avatares"
+          caminho={storageService.gerarCaminho(user?.id || 'demo', 'image/jpeg')}
+          urlAtual={user?.avatar_url}
+          onUpload={handleAvatarUpload}
+          shape="circle"
+          width={88}
+          height={88}
+          placeholder={user?.nome?.charAt(0)?.toUpperCase() || 'U'}
+          label="Alterar foto"
+        />
         <Text style={styles.userName}>{user?.nome} {user?.sobrenome}</Text>
         <Text style={styles.userHandle}>@{user?.username}</Text>
 
@@ -98,13 +117,27 @@ export default function PerfilScreen() {
           </TouchableOpacity>
         ))}
 
-        {/* R4: Admin moderação (visível para admin e em modo demo) */}
-        {(user?.tipo_conta === 'admin' || true) && (
-          <TouchableOpacity style={[styles.menuItem, styles.adminItem]} onPress={() => router.push('/admin/moderacao')}>
-            <Ionicons name="shield-checkmark" size={22} color={CORES.laranja} />
-            <Text style={[styles.menuLabel, { color: CORES.laranja }]}>Moderação (Admin)</Text>
-            <Ionicons name="chevron-forward" size={18} color={CORES.laranja} />
-          </TouchableOpacity>
+        {/* R4: Admin área — só visível para admins */}
+        {user?.tipo_conta === 'admin' && (
+          <View style={styles.adminSection}>
+            <Text style={styles.adminSectionLabel}>Administrador</Text>
+            <TouchableOpacity
+              style={[styles.menuItem, styles.adminItem]}
+              onPress={() => router.push('/admin/moderacao')}
+            >
+              <Ionicons name="shield-checkmark" size={22} color={CORES.laranja} />
+              <Text style={[styles.menuLabel, { color: CORES.laranja }]}>Moderação</Text>
+              <Ionicons name="chevron-forward" size={18} color={CORES.laranja} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.menuItem, styles.adminItem, { borderColor: CORES.roxoClaro }]}
+              onPress={() => router.push('/admin/dashboard')}
+            >
+              <Ionicons name="stats-chart" size={22} color={CORES.roxoClaro} />
+              <Text style={[styles.menuLabel, { color: CORES.roxoClaro }]}>Dashboard Analítico</Text>
+              <Ionicons name="chevron-forward" size={18} color={CORES.roxoClaro} />
+            </TouchableOpacity>
+          </View>
         )}
       </View>
 
@@ -123,10 +156,8 @@ const styles = StyleSheet.create({
   scrollContent: { paddingHorizontal: SPACING.lg, paddingBottom: 100 },
   titulo: { fontSize: FONT_SIZE.xxl, fontWeight: 'bold', color: CORES.branco, marginBottom: SPACING.lg },
 
-  avatarSection: { alignItems: 'center', marginBottom: SPACING.lg },
-  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: CORES.roxo, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.md },
-  avatarText: { fontSize: 32, fontWeight: 'bold', color: CORES.branco },
-  userName: { color: CORES.branco, fontSize: FONT_SIZE.lg, fontWeight: 'bold' },
+  avatarSection: { alignItems: 'center', marginBottom: SPACING.lg, gap: SPACING.sm },
+  userName: { color: CORES.branco, fontSize: FONT_SIZE.lg, fontWeight: 'bold', marginTop: 4 },
   userHandle: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm, marginTop: 4 },
   tipoBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: SPACING.sm, backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs },
   tipoBadgeText: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.xs },
@@ -139,7 +170,9 @@ const styles = StyleSheet.create({
 
   menu: { gap: 4 },
   menuItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.md, padding: SPACING.md, gap: SPACING.md },
-  adminItem: { borderWidth: 1, borderColor: CORES.laranja, marginTop: SPACING.sm },
+  adminItem: { borderWidth: 1, borderColor: CORES.laranja, marginTop: 4 },
+  adminSection: { marginTop: SPACING.md, gap: 4 },
+  adminSectionLabel: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 },
   menuLabel: { flex: 1, color: CORES.branco, fontSize: FONT_SIZE.md },
 
   logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, marginTop: SPACING.xl, padding: SPACING.md },

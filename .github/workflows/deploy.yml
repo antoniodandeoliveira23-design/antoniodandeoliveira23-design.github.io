@@ -1,4 +1,4 @@
-name: Deploy AGORA → Vercel
+name: Deploy AGORA
 
 on:
   push:
@@ -7,9 +7,11 @@ on:
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
 
 concurrency:
-  group: vercel-deploy
+  group: deploy-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -36,7 +38,6 @@ jobs:
       - name: ESLint
         run: npm run lint
 
-      # A06 — Auditoria de segurança de dependências
       - name: Security audit
         run: npm audit --audit-level=high
         continue-on-error: true
@@ -54,21 +55,14 @@ jobs:
             echo "::warning::$CRITICAL vulnerabilidade(s) crítica(s) detectada(s). Revisar antes do próximo deploy."
           fi
 
-  # ── 2. Build + Deploy ────────────────────────────────────
-  deploy:
-    name: 🚀 Build + Deploy → Vercel
+  # ── 2. Build ─────────────────────────────────────────────
+  build:
+    name: 🏗️ Build Expo Web
     runs-on: ubuntu-latest
     needs: quality
-    environment:
-      name: production
-      url: ${{ steps.deploy.outputs.preview-url }}
     env:
-      # Chaves públicas — sem risco de segurança (anon key = somente leitura com RLS)
       EXPO_PUBLIC_SUPABASE_URL: https://spzsdjrjejlemuompfgf.supabase.co
       EXPO_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwenNkanJqZWpsZW11b21wZmdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3NDg3OTUsImV4cCI6MjA5MDMyNDc5NX0.3v3kK3H5jA6fiJ-hGMGX1Xxcupy-ngplbGrpVzVeVJQ
-      # IDs do projeto Vercel — não são sensíveis
-      VERCEL_ORG_ID: team_aUjYLNcbhZr9QUlNqrJDuUWE
-      VERCEL_PROJECT_ID: prj_Z50TS7W4irtoy8acWw2OPVWtQsDz
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -88,17 +82,59 @@ jobs:
       - name: SPA fallback (404.html)
         run: cp dist/index.html dist/404.html
 
-      # Verifica se o token está configurado antes de deployar
-      - name: Verificar VERCEL_TOKEN
-        run: |
-          if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then
-            echo "::error::VERCEL_TOKEN não configurado. Acesse: GitHub → Settings → Secrets → Actions → New secret"
-            echo "::error::Nome: VERCEL_TOKEN  |  Valor: token de https://vercel.com/account/tokens"
-            exit 1
-          fi
-          echo "✅ VERCEL_TOKEN configurado"
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agora-web-dist
+          path: dist/
+          retention-days: 1
 
-      # Deploy para Vercel com headers HTTP reais (A05)
+  # ── 3a. Deploy → GitHub Pages (sempre ativo) ─────────────
+  deploy-pages:
+    name: 🌐 Deploy → GitHub Pages
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: agora-web-dist
+          path: dist/
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload to Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  # ── 3b. Deploy → Vercel (requer VERCEL_TOKEN secret) ─────
+  deploy-vercel:
+    name: 🚀 Deploy → Vercel
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ secrets.VERCEL_TOKEN != '' }}
+    env:
+      VERCEL_ORG_ID: team_aUjYLNcbhZr9QUlNqrJDuUWE
+      VERCEL_PROJECT_ID: prj_Z50TS7W4irtoy8acWw2OPVWtQsDz
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: agora-web-dist
+          path: dist/
+
       - name: Deploy to Vercel (Production)
         id: deploy
         uses: amondnet/vercel-action@v25
@@ -106,8 +142,8 @@ jobs:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ env.VERCEL_ORG_ID }}
           vercel-project-id: ${{ env.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
+          vercel-args: '--prod --prebuilt'
           working-directory: ./
 
       - name: 🎉 URL publicada
-        run: echo "✅ Deploy concluído → ${{ steps.deploy.outputs.preview-url }}"
+        run: echo "✅ Deploy Vercel concluído → ${{ steps.deploy.outputs.preview-url }}"

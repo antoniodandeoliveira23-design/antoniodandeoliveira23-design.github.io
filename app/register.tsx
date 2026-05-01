@@ -1,5 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import SocialLoginButtons from '@/components/SocialLoginButtons';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -14,6 +15,7 @@ import {
 } from 'react-native';
 import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { validarSenha, validarCNPJ, formatarCNPJ } from '@/services/seguranca';
 import type { TipoConta, Genero } from '@/types';
 
 type Passo = 1 | 2 | 3;
@@ -41,12 +43,17 @@ export default function Register() {
   // Passo 3 PF: Gênero (R9 - para filtrar eventos exclusivos mulheres)
   const [genero, setGenero] = useState<Genero | ''>('');
 
+  const forcaSenha = senha.length > 0 ? validarSenha(senha) : null;
+
   const validarPasso1 = () => {
     if (!nome.trim()) return 'Preencha o primeiro nome.';
     if (!sobrenome.trim()) return 'Preencha o sobrenome.';
     if (!username.trim()) return 'Preencha o nome de usuário.';
-    if (!email.trim()) return 'Preencha o e-mail.';
-    if (senha.length < 8) return 'A senha deve ter pelo menos 8 caracteres.';
+    if (!email.trim() || !email.includes('@')) return 'Informe um e-mail válido.';
+    if (!forcaSenha || !forcaSenha.valida) {
+      const erros = forcaSenha?.erros || ['A senha deve ter pelo menos 8 caracteres.'];
+      return erros[0];
+    }
     return '';
   };
 
@@ -70,10 +77,20 @@ export default function Register() {
 
   const handleRegister = async () => {
     setErro('');
-    if (tipoConta === 'pj' && !cnpj.trim()) {
-      setErro('Informe o CNPJ da empresa.');
-      return;
+
+    // Validação completa de CNPJ para PJ (formato + dígitos verificadores)
+    if (tipoConta === 'pj') {
+      if (!cnpj.trim()) {
+        setErro('Informe o CNPJ da empresa.');
+        return;
+      }
+      const validacaoCnpj = validarCNPJ(cnpj);
+      if (!validacaoCnpj.valido) {
+        setErro(validacaoCnpj.erro ?? 'CNPJ inválido.');
+        return;
+      }
     }
+
     try {
       await register({
         nome: nome.trim(),
@@ -85,16 +102,36 @@ export default function Register() {
         cnpj: tipoConta === 'pj' ? cnpj.trim() : undefined,
         genero: genero || undefined,
       });
+      // Navegação explícita após cadastro bem-sucedido
+      router.replace('/(tabs)');
     } catch (e: any) {
-      setErro(e.message || 'Erro ao criar conta.');
+      const msg: string = e.message || '';
+      if (msg.startsWith('SENHA_FRACA:')) {
+        const erros = msg.replace('SENHA_FRACA:', '').split('|');
+        setErro('Senha fraca: ' + erros[0]);
+      } else if (msg.startsWith('RATE_LIMIT:')) {
+        const s = msg.replace('RATE_LIMIT:', '');
+        setErro(`Muitas tentativas. Aguarde ${s} segundos.`);
+      } else if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already been registered')) {
+        setErro('Este e-mail já está cadastrado. Faça login.');
+      } else {
+        setErro(msg || 'Erro ao criar conta. Tente novamente.');
+      }
     }
   };
 
   const handleSocial = async (provider: 'google' | 'apple' | 'x') => {
+    setErro('');
     try {
       await loginSocial(provider);
     } catch (e: any) {
-      Alert.alert('Erro', e.message);
+      const msg: string = e.message || '';
+      if (msg === 'LOGIN_CANCELADO') return;
+      if (msg.includes('provider') || msg.includes('not enabled') || msg.includes('disabled')) {
+        setErro('Este método ainda não está ativo. Use e-mail e senha.');
+        return;
+      }
+      setErro(msg || 'Erro ao registrar com login social.');
     }
   };
 
@@ -102,21 +139,11 @@ export default function Register() {
   const renderPasso1 = () => (
     <>
       <Text style={styles.socialLabel}>Registrar com:</Text>
-      <View style={styles.socialRow}>
-        <TouchableOpacity style={styles.socialBtn} onPress={() => handleSocial('google')}>
-          <Text style={styles.socialBtnText}>G</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.socialBtn} onPress={() => handleSocial('apple')}>
-          <Ionicons name="logo-apple" size={20} color={CORES.branco} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.socialBtn} onPress={() => handleSocial('x')}>
-          <Text style={styles.socialBtnText}>X</Text>
-        </TouchableOpacity>
-      </View>
+      <SocialLoginButtons onPress={handleSocial} disabled={loading} variant="full" />
 
       <View style={styles.dividerRow}>
         <View style={styles.dividerLine} />
-        <Text style={styles.dividerText}>Ou</Text>
+        <Text style={styles.dividerText}>Ou cadastre com e-mail</Text>
         <View style={styles.dividerLine} />
       </View>
 
@@ -157,7 +184,41 @@ export default function Register() {
           <Ionicons name={senhaVisivel ? 'eye-outline' : 'eye-off-outline'} size={18} color={CORES.cinza} />
         </TouchableOpacity>
       </View>
-      <Text style={styles.hint}>Tamanho mínimo são 8 caracteres.</Text>
+
+      {/* Indicador de força da senha */}
+      {forcaSenha && (
+        <View style={styles.forcaContainer}>
+          <View style={styles.forcaBarras}>
+            {[0, 1, 2, 3].map((i) => (
+              <View
+                key={i}
+                style={[
+                  styles.forcaBarra,
+                  i < forcaSenha.pontuacao && {
+                    backgroundColor:
+                      forcaSenha.pontuacao <= 1 ? CORES.erro
+                      : forcaSenha.pontuacao === 2 ? '#F59E0B'
+                      : forcaSenha.pontuacao === 3 ? '#3B82F6'
+                      : CORES.sucesso,
+                  },
+                ]}
+              />
+            ))}
+          </View>
+          <Text style={[styles.forcaLabel, {
+            color: forcaSenha.pontuacao <= 1 ? CORES.erro
+              : forcaSenha.pontuacao === 2 ? '#F59E0B'
+              : forcaSenha.pontuacao === 3 ? '#3B82F6'
+              : CORES.sucesso,
+          }]}>
+            {forcaSenha.forca === 'fraca' ? 'Fraca'
+              : forcaSenha.forca === 'media' ? 'Média'
+              : forcaSenha.forca === 'forte' ? 'Forte'
+              : 'Muito forte'}
+          </Text>
+        </View>
+      )}
+      <Text style={styles.hint}>Use 8+ chars com maiúscula, número e símbolo (!@#...).</Text>
     </>
   );
 
@@ -212,10 +273,28 @@ export default function Register() {
         <>
           <Text style={styles.passoTitulo}>Dados da Empresa</Text>
           <Text style={styles.label}>CNPJ</Text>
-          <View style={styles.inputWrapper}>
+          <View style={[styles.inputWrapper, cnpj && !validarCNPJ(cnpj).valido && cnpj.replace(/\D/g,'').length === 14 && { borderWidth: 1, borderColor: CORES.erro }]}>
             <MaterialCommunityIcons name="file-document-outline" size={18} color={CORES.cinza} style={styles.inputIcon} />
-            <TextInput style={styles.input} placeholder="00.000.000/0000-00" placeholderTextColor={CORES.cinza} value={cnpj} onChangeText={setCnpj} keyboardType="numeric" />
+            <TextInput
+              style={styles.input}
+              placeholder="00.000.000/0000-00"
+              placeholderTextColor={CORES.cinza}
+              value={cnpj}
+              onChangeText={(t) => setCnpj(formatarCNPJ(t))}
+              keyboardType="number-pad"
+              maxLength={18}
+            />
+            {cnpj.replace(/\D/g,'').length === 14 && (
+              <Ionicons
+                name={validarCNPJ(cnpj).valido ? 'checkmark-circle' : 'close-circle'}
+                size={18}
+                color={validarCNPJ(cnpj).valido ? CORES.sucesso : CORES.erro}
+              />
+            )}
           </View>
+          {cnpj.replace(/\D/g,'').length === 14 && !validarCNPJ(cnpj).valido && (
+            <Text style={[styles.hint, { color: CORES.erro }]}>{validarCNPJ(cnpj).erro}</Text>
+          )}
           <Text style={styles.hint}>Necessário para publicar eventos comerciais (R5).</Text>
         </>
       ) : tipoConta === 'gov' ? (
@@ -328,10 +407,7 @@ const styles = StyleSheet.create({
   infoText: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm, lineHeight: 22, maxWidth: 400, marginBottom: SPACING.lg },
 
   // Social
-  socialLabel: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm, marginBottom: SPACING.md },
-  socialRow: { flexDirection: 'row', gap: SPACING.md, marginBottom: SPACING.lg },
-  socialBtn: { width: 56, height: 44, backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.sm, justifyContent: 'center', alignItems: 'center' },
-  socialBtnText: { color: CORES.branco, fontSize: FONT_SIZE.lg, fontWeight: 'bold' },
+  socialLabel: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm, marginBottom: SPACING.md, alignSelf: 'flex-start', maxWidth: 400, width: '100%' },
   dividerRow: { flexDirection: 'row', alignItems: 'center', width: '100%', maxWidth: 400, marginBottom: SPACING.lg },
   dividerLine: { flex: 1, height: 1, backgroundColor: CORES.border },
   dividerText: { color: CORES.cinzaClaro, marginHorizontal: SPACING.md, fontSize: FONT_SIZE.sm },
@@ -343,7 +419,11 @@ const styles = StyleSheet.create({
   inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: CORES.backgroundInput, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.md, width: '100%', maxWidth: 400, height: 48, marginBottom: SPACING.md },
   inputIcon: { marginRight: SPACING.sm },
   input: { flex: 1, color: CORES.branco, fontSize: FONT_SIZE.sm },
-  hint: { color: CORES.cinza, fontSize: FONT_SIZE.xs, alignSelf: 'flex-start', maxWidth: 400, marginBottom: SPACING.md, marginTop: -8 },
+  hint: { color: CORES.cinza, fontSize: FONT_SIZE.xs, alignSelf: 'flex-start', maxWidth: 400, marginBottom: SPACING.md, marginTop: 2 },
+  forcaContainer: { flexDirection: 'row', alignItems: 'center', width: '100%', maxWidth: 400, gap: SPACING.sm, marginBottom: SPACING.xs, marginTop: -8 },
+  forcaBarras: { flexDirection: 'row', gap: 4, flex: 1 },
+  forcaBarra: { flex: 1, height: 4, borderRadius: 2, backgroundColor: CORES.border },
+  forcaLabel: { fontSize: FONT_SIZE.xs, fontWeight: '600', minWidth: 60, textAlign: 'right' },
   erroText: { color: CORES.erro, fontSize: FONT_SIZE.xs, alignSelf: 'flex-start', maxWidth: 400, marginBottom: SPACING.sm },
 
   // CTA

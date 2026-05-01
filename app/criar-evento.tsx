@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -18,6 +18,10 @@ import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEventos } from '@/contexts/EventosContext';
 import { validacaoSemantica } from '@/services/validacao-semantica';
+import { registrarAnomalia } from '@/services/auditoria';
+import { localizacaoService, COORDS_PADRAO, type Coordenadas } from '@/services/localizacao';
+import { storageService } from '@/services/storage';
+import ImageUpload from '@/components/ImageUpload';
 import type { CategoriaEvento } from '@/types';
 
 const CATEGORIAS: { value: CategoriaEvento; label: string; icon: string }[] = [
@@ -48,6 +52,23 @@ export default function CriarEvento() {
   const [erro, setErro] = useState('');
   const [modalSucesso, setModalSucesso] = useState(false);
 
+  // Geocoding: captura GPS silenciosamente em background ao abrir a tela
+  const coordsRef = useRef<Coordenadas>(COORDS_PADRAO);
+  const [coordsObtidas, setCoordsObtidas] = useState(false);
+
+  useEffect(() => {
+    localizacaoService.obterPosicao().then((pos) => {
+      if (pos) {
+        coordsRef.current = pos;
+        setCoordsObtidas(true);
+      }
+    });
+  }, []);
+
+  // Imagem do evento
+  const [imagemUrl, setImagemUrl] = useState<string | undefined>();
+  const campoCaminhoImagem = storageService.gerarCaminho(user?.id || 'demo');
+
   // R2: Modal de bloqueio comercial
   const [modalBloqueio, setModalBloqueio] = useState(false);
   const [termosComerciais, setTermosComerciais] = useState<string[]>([]);
@@ -68,25 +89,59 @@ export default function CriarEvento() {
       return;
     }
 
-    // R1/R6: Validação semântica para PF e Gov (ambos não podem publicar conteúdo comercial)
-    if (user?.tipo_conta === 'pf' || user?.tipo_conta === 'gov') {
-      const textoCompleto = nome + ' ' + descricao;
-      const ehComercial = validacaoSemantica.detectarConteudoComercial(textoCompleto);
+    // R1/R6: Validação semântica completa (comercial + spam + ódio)
+    const textoCompleto = nome + ' ' + descricao;
 
-      if (ehComercial) {
-        // R2: Bloqueio inteligente + modal educativo
-        const termos = validacaoSemantica.listarTermosEncontrados(textoCompleto);
+    // Para PF/Gov: bloqueia conteúdo comercial via analisar('evento')
+    if (user?.tipo_conta === 'pf' || user?.tipo_conta === 'gov') {
+      const analise = validacaoSemantica.analisar(textoCompleto, 'evento');
+
+      if (analise.bloqueado) {
+        const termos = analise.termosComerciais.length > 0
+          ? analise.termosComerciais
+          : analise.alertas;
         setTermosComerciais(termos);
         setModalBloqueio(true);
+
+        // Registra anomalia quando conteúdo comercial é detectado em conta PF/Gov
+        await registrarAnomalia({
+          userId: user?.id,
+          tipo: 'conteudo_suspeito',
+          descricao: `Evento bloqueado por conteúdo comercial detectado em conta ${user.tipo_conta.toUpperCase()}`,
+          detalhes: {
+            contexto: 'evento',
+            nome_evento: nome.trim().substring(0, 80),
+            tipo_conta: user.tipo_conta,
+            score: analise.score,
+            termos: termos.slice(0, 5),
+          },
+        });
+        return;
+      }
+    } else {
+      // Para PJ/Admin: apenas spam + ódio (comercial é permitido)
+      const analise = validacaoSemantica.analisar(textoCompleto, 'produto');
+      if (analise.bloqueado) {
+        setErro(analise.motivo ?? 'Conteúdo não permitido. Revise o nome e descrição.');
+        await registrarAnomalia({
+          userId: user?.id,
+          tipo: 'conteudo_suspeito',
+          descricao: `Evento bloqueado por conteúdo ofensivo/spam em conta ${user?.tipo_conta?.toUpperCase()}`,
+          detalhes: {
+            contexto: 'evento',
+            nome_evento: nome.trim().substring(0, 80),
+            score: analise.score,
+            motivos: analise.alertas.slice(0, 3),
+          },
+        });
         return;
       }
     }
 
     setCarregando(true);
     try {
-      // Coordenadas de Vilhena-RO como padrão (geocoding será integrado com Google Places futuramente)
-      const latitude = -12.7405 + (Math.random() * 0.01 - 0.005);
-      const longitude = -60.1458 + (Math.random() * 0.01 - 0.005);
+      // Usa GPS real se disponível; senão usa coordenadas padrão de Vilhena-RO
+      const { lat: latitude, lng: longitude } = coordsRef.current;
 
       const eventoCriado = await criarEvento(
         {
@@ -98,6 +153,7 @@ export default function CriarEvento() {
           categoria,
           data_inicio: dataInicio ? new Date(dataInicio).toISOString() : new Date().toISOString(),
           exclusivo_mulheres: exclusivoMulheres,
+          imagem_url: imagemUrl,
         },
         user?.tipo_conta as 'pf' | 'pj' | 'gov' | undefined,
         user?.verificado,
@@ -142,6 +198,21 @@ export default function CriarEvento() {
             <Text style={styles.badgeText}>Evento Comercial (PJ)</Text>
           </View>
         )}
+
+        {/* Imagem de capa do evento */}
+        <Text style={styles.label}>Foto de capa</Text>
+        <View style={styles.imagemCapaWrapper}>
+          <ImageUpload
+            bucket="eventos"
+            caminho={campoCaminhoImagem}
+            urlAtual={imagemUrl}
+            onUpload={setImagemUrl}
+            shape="rect"
+            width={320}
+            height={160}
+            label="Adicionar foto de capa"
+          />
+        </View>
 
         {/* Form */}
         <Text style={styles.label}>Nome do evento</Text>
@@ -317,6 +388,8 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: FONT_SIZE.xl, fontWeight: 'bold', color: CORES.branco },
   badge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs, gap: 6, marginBottom: SPACING.lg },
   badgeText: { color: CORES.laranja, fontSize: FONT_SIZE.xs, fontWeight: '600' },
+
+  imagemCapaWrapper: { alignItems: 'center', marginBottom: SPACING.lg },
 
   label: { color: CORES.branco, fontSize: FONT_SIZE.sm, fontWeight: '600', marginBottom: SPACING.xs },
   inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: CORES.backgroundInput, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.md, height: 48, marginBottom: SPACING.md },

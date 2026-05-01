@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirme seu email — AGORA</title>
+</head>
+<body style="margin:0;padding:16px;background:#07070E;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <div style="max-width:520px;margin:0 auto;background:#0F0F1A;border-radius:12px;overflow:hidden;">
+
+    <div style="background:linear-gradient(135deg,#6C3FC5 0%,#FF6B00 100%);padding:32px 24px;text-align:center;">
+      <h1 style="margin:0;font-size:28px;letter-spacing:4px;color:#fff;">AGORA</h1>
+      <p style="margin:4px 0 0;color:rgba(255,255,255,0.7);font-size:13px;">Plataforma de Eventos de Vilhena</p>
+    </div>
+
+    <div style="padding:32px 24px;">
+      <h2 style="color:#FF6B00;margin-top:0">Confirme seu email ✉️</h2>
+      <p style="color:#CCCCCC;">Olá! Para ativar sua conta no AGORA, clique no botão abaixo:</p>
+
+      <div style="text-align:center;margin:32px 0;">
+        <a href="{{ .ConfirmationURL }}"
+           style="display:inline-block;background:#6C3FC5;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px;">
+          Confirmar meu email
+        </a>
+      </div>
+
+      <p style="color:#888;font-size:13px;">
+        Se o botão não funcionar, copie e cole este link no navegador:<br>
+        <a href="{{ .ConfirmationURL }}" style="color:#6C3FC5;word-break:break-all;">{{ .ConfirmationURL }}</a>
+      </p>
+
+      <p style="color:#888;font-size:12px;margin-top:24px;border-top:1px solid #222;padding-top:16px;">
+        Se você não criou esta conta, ignore este email com segurança.
+        Este link expira em 24 horas.
+      </p>
+    </div>
+
+    <div style="background:#1A1A2E;padding:16px 24px;text-align:center;color:#888;font-size:12px;">
+      <p style="margin:0">© 2026 AGORA — Vilhena, Rondônia</p>
+    </div>
+  </div>
+</body>
+</html>

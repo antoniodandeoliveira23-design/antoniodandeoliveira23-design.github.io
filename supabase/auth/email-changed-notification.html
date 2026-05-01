@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seu email foi alterado — AGORA</title>
+  <!--
+    Template: Notificação de email alterado (enviado ao email antigo)
+    Supabase Dashboard → Authentication → Email Templates → Email Changed Notification
+    Variáveis disponíveis: {{ .OldEmail }} {{ .Email }} (novo email) {{ .SiteURL }}
+  -->
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #07070E;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      width: 100%;
+      padding: 40px 16px;
+      background-color: #07070E;
+    }
+    .card {
+      max-width: 520px;
+      margin: 0 auto;
+      background-color: #0F0F1A;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .header {
+      background: linear-gradient(135deg, #6C3FC5 0%, #FF6B00 100%);
+      padding: 36px 32px 28px;
+      text-align: center;
+    }
+    .logo-text {
+      font-size: 28px;
+      font-weight: 900;
+      color: #FFFFFF;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+    }
+    .logo-sub {
+      font-size: 12px;
+      color: rgba(255,255,255,0.65);
+      margin-top: 6px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .body { padding: 36px 32px; }
+    .icon-wrap {
+      width: 64px;
+      height: 64px;
+      background: rgba(255, 107, 0, 0.12);
+      border-radius: 50%;
+      margin: 0 auto 24px;
+      font-size: 28px;
+      text-align: center;
+      line-height: 64px;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #FFFFFF;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    p {
+      font-size: 15px;
+      line-height: 1.7;
+      color: #9CA3AF;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .info-box {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin: 24px 0;
+    }
+    .info-row {
+      margin-bottom: 12px;
+    }
+    .info-row:last-child { margin-bottom: 0; }
+    .info-label {
+      font-size: 11px;
+      color: #6B7280;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+    .info-value {
+      font-size: 14px;
+      color: #E5E7EB;
+      font-weight: 500;
+      word-break: break-all;
+    }
+    .info-value.novo { color: #A78BFA; }
+    .alert-box {
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin: 20px 0;
+    }
+    .alert-box p {
+      font-size: 13px;
+      color: #FCA5A5;
+      text-align: left;
+      margin: 0;
+    }
+    .btn-wrap {
+      text-align: center;
+      margin: 24px 0 8px;
+    }
+    .btn {
+      display: inline-block;
+      background: linear-gradient(135deg, #FF6B00, #FF8C3A);
+      color: #FFFFFF !important;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 12px 32px;
+      border-radius: 12px;
+      text-decoration: none;
+    }
+    .footer {
+      background: #0A0A14;
+      border-top: 1px solid rgba(255,255,255,0.04);
+      padding: 20px 32px;
+      text-align: center;
+    }
+    .footer p {
+      font-size: 11px;
+      color: #4B5563;
+      margin: 0;
+    }
+    .footer a { color: #6B7280; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+
+      <div class="header">
+        <div class="logo-text">AGORA</div>
+        <div class="logo-sub">Vilhena · Rondônia</div>
+      </div>
+
+      <div class="body">
+        <div class="icon-wrap">🔔</div>
+
+        <h1>Email da conta alterado</h1>
+
+        <p>
+          Este é um aviso de segurança: o email associado à sua conta no AGORA
+          foi alterado com sucesso.
+        </p>
+
+        <div class="info-box">
+          <div class="info-row">
+            <div class="info-label">Email anterior</div>
+            <div class="info-value">{{ .OldEmail }}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Novo email</div>
+            <div class="info-value novo">{{ .Email }}</div>
+          </div>
+        </div>
+
+        <div class="alert-box">
+          <p>
+            🚨 <strong>Não foi você?</strong> Se você não solicitou esta alteração,
+            sua conta pode estar comprometida. Entre em contato com o suporte imediatamente
+            através do app ou acesse <strong>agora-vilhena.vercel.app/suporte</strong>.
+          </p>
+        </div>
+
+        <div class="btn-wrap">
+          <a href="{{ .SiteURL }}/suporte" class="btn">Falar com suporte</a>
+        </div>
+      </div>
+
+      <div class="footer">
+        <p>
+          AGORA &copy; {{ .CurrentYear }} &nbsp;|&nbsp;
+          Vilhena, RO &nbsp;|&nbsp;
+          <a href="{{ .SiteURL }}">agora-vilhena.vercel.app</a>
+        </p>
+        <p style="margin-top: 6px;">
+          Aviso enviado para <strong style="color:#6B7280">{{ .OldEmail }}</strong>
+        </p>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>
