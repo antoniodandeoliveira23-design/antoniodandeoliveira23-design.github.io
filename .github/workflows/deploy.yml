@@ -155,17 +155,14 @@ jobs:
           cp -r dist/. .vercel/output/static/
           echo '{"version":3}' > .vercel/output/config.json
 
+      - name: Install Vercel CLI (latest)
+        if: env.SKIP_VERCEL == 'false'
+        run: npm install --global vercel@latest
+
       - name: Deploy to Vercel (Production)
         if: env.SKIP_VERCEL == 'false'
         id: deploy
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ env.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ env.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod --prebuilt'
-          working-directory: ./
-
-      - name: Deploy URL
-        if: env.SKIP_VERCEL == 'false'
-        run: echo "Deploy complete - ${{ steps.deploy.outputs.preview-url }}"
+        run: |
+          url=$(vercel deploy --prod --prebuilt --token "$VERCEL_TOKEN" 2>&1 | tail -1)
+          echo "url=$url" >> $GITHUB_OUTPUT
+          echo "Deploy complete: $url"
