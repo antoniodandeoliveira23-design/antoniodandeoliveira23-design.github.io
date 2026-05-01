@@ -17,7 +17,7 @@ concurrency:
 jobs:
   # ── 1. Quality Gate ─────────────────────────────────────
   quality:
-    name: 🔍 Quality Gate
+    name: Quality Gate
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -32,7 +32,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: TypeScript — type check
+      - name: TypeScript type check
         run: npm run typecheck
 
       - name: ESLint
@@ -42,22 +42,22 @@ jobs:
         run: npm audit --audit-level=high
         continue-on-error: true
 
-      - name: Verificar vulnerabilidades críticas
+      - name: Check critical vulnerabilities
         run: |
           CRITICAL=$(npm audit --json | node -e "
             const d=require('fs').readFileSync('/dev/stdin','utf8');
             const r=JSON.parse(d);
-            const c=r.metadata?.vulnerabilities?.critical||0;
+            const c=r.metadata && r.metadata.vulnerabilities && r.metadata.vulnerabilities.critical || 0;
             console.log(c);
           " 2>/dev/null || echo "0")
-          echo "Vulnerabilidades críticas: $CRITICAL"
+          echo "Critical vulnerabilities: $CRITICAL"
           if [ "$CRITICAL" -gt "0" ]; then
-            echo "::warning::$CRITICAL vulnerabilidade(s) crítica(s) detectada(s). Revisar antes do próximo deploy."
+            echo "::warning::$CRITICAL critical vulnerability(ies) detected. Review before next deploy."
           fi
 
   # ── 2. Build ─────────────────────────────────────────────
   build:
-    name: 🏗️ Build Expo Web
+    name: Build Expo Web
     runs-on: ubuntu-latest
     needs: quality
     env:
@@ -89,9 +89,9 @@ jobs:
           path: dist/
           retention-days: 1
 
-  # ── 3a. Deploy → GitHub Pages (sempre ativo) ─────────────
+  # ── 3. Deploy to GitHub Pages ─────────────────────────────
   deploy-pages:
-    name: 🌐 Deploy → GitHub Pages
+    name: Deploy to GitHub Pages
     runs-on: ubuntu-latest
     needs: build
     environment:
@@ -107,7 +107,7 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
-      - name: Upload to Pages
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist/
@@ -116,26 +116,40 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-  # ── 3b. Deploy → Vercel (requer VERCEL_TOKEN secret) ─────
+  # ── 4. Deploy to Vercel (optional - requires VERCEL_TOKEN) ─
   deploy-vercel:
-    name: 🚀 Deploy → Vercel
+    name: Deploy to Vercel
     runs-on: ubuntu-latest
     needs: build
-    if: ${{ secrets.VERCEL_TOKEN != '' }}
     env:
       VERCEL_ORG_ID: team_aUjYLNcbhZr9QUlNqrJDuUWE
       VERCEL_PROJECT_ID: prj_Z50TS7W4irtoy8acWw2OPVWtQsDz
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
+      - name: Check VERCEL_TOKEN
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::notice::VERCEL_TOKEN not configured - skipping Vercel deploy."
+            echo "To enable Vercel deploys: GitHub Settings -> Secrets -> Actions -> VERCEL_TOKEN"
+            echo "SKIP_VERCEL=true" >> $GITHUB_ENV
+          else
+            echo "VERCEL_TOKEN is configured, deploying to Vercel..."
+            echo "SKIP_VERCEL=false" >> $GITHUB_ENV
+          fi
+
       - name: Checkout
+        if: env.SKIP_VERCEL == 'false'
         uses: actions/checkout@v4
 
       - name: Download build artifact
+        if: env.SKIP_VERCEL == 'false'
         uses: actions/download-artifact@v4
         with:
           name: agora-web-dist
           path: dist/
 
       - name: Deploy to Vercel (Production)
+        if: env.SKIP_VERCEL == 'false'
         id: deploy
         uses: amondnet/vercel-action@v25
         with:
@@ -145,5 +159,6 @@ jobs:
           vercel-args: '--prod --prebuilt'
           working-directory: ./
 
-      - name: 🎉 URL publicada
-        run: echo "✅ Deploy Vercel concluído → ${{ steps.deploy.outputs.preview-url }}"
+      - name: Deploy URL
+        if: env.SKIP_VERCEL == 'false'
+        run: echo "Deploy complete - ${{ steps.deploy.outputs.preview-url }}"
