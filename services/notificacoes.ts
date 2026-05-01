@@ -73,6 +73,17 @@ export async function registrarPushToken(usuarioId: string): Promise<void> {
       return;
     }
 
+    // Criar canal Android (obrigatório para Android 8+)
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('agora-notificacoes', {
+        name: 'AGORA Notificações',
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#7B2FBE',
+        sound: 'default',
+      });
+    }
+
     // Configurar handler de notificações recebidas em foreground
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
@@ -84,8 +95,10 @@ export async function registrarPushToken(usuarioId: string): Promise<void> {
       }),
     });
 
-    const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId: 'agora-vilhena', // Substituir pelo EAS projectId real se configurado
+    // projectId é opcional — Expo lê do app.json/eas.json automaticamente se disponível
+    const tokenData = await Notifications.getExpoPushTokenAsync().catch(async () => {
+      // Fallback: tenta sem projectId (funciona em dev/Expo Go)
+      return Notifications.getExpoPushTokenAsync({ projectId: undefined as any });
     });
 
     const token = tokenData.data;

@@ -66,8 +66,24 @@
       "scope": "/"
     },
 
+    "notification": {
+      "icon": "./assets/images/icon.png",
+      "color": "#7B2FBE",
+      "androidMode": "default",
+      "androidCollapsedTitle": "#{unread_notifications} novas notificações"
+    },
+
     "plugins": [
       "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#7B2FBE",
+          "defaultChannel": "agora-notificacoes",
+          "sounds": []
+        }
+      ],
       [
         "expo-image-picker",
         {

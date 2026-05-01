@@ -18,8 +18,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { corsHeaders, jsonOk, jsonError } from '../_shared/cors.ts';
-import { requireAuth } from '../_shared/auth.ts';
+import { corsHeaders, jsonResponse, errorResponse } from '../_shared/cors.ts';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
@@ -37,7 +36,7 @@ serve(async (req: Request) => {
     const { usuario_id, tipo, titulo, mensagem, dados = {} } = body;
 
     if (!usuario_id || !tipo || !titulo || !mensagem) {
-      return jsonError('Campos obrigatórios: usuario_id, tipo, titulo, mensagem', 400);
+      return errorResponse('Campos obrigatórios: usuario_id, tipo, titulo, mensagem', 400);
     }
 
     // ── 1. Criar notificação in-app ──────────────────────────────
@@ -62,7 +61,7 @@ serve(async (req: Request) => {
 
     if (tokensError || !tokens?.length) {
       // Sem tokens: in-app foi criada, retorna sucesso
-      return jsonOk({ enviado: false, motivo: 'sem_tokens', in_app: !dbError });
+      return jsonResponse({ enviado: false, motivo: 'sem_tokens', in_app: !dbError });
     }
 
     // ── 3. Enviar via Expo Push API ──────────────────────────────
@@ -105,7 +104,7 @@ serve(async (req: Request) => {
         .in('token', tokensInvalidos);
     }
 
-    return jsonOk({
+    return jsonResponse({
       enviado:       true,
       push_enviados: mensagens.length,
       in_app:        !dbError,
@@ -113,6 +112,6 @@ serve(async (req: Request) => {
 
   } catch (err) {
     console.error('[push] Erro inesperado:', err);
-    return jsonError('Erro interno', 500);
+    return errorResponse('Erro interno', 500);
   }
 });
