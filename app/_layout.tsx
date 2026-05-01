@@ -6,15 +6,27 @@ import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { EventosProvider } from '@/contexts/EventosContext';
 import { ChatProvider } from '@/contexts/ChatContext';
+import { NotificacoesProvider } from '@/contexts/NotificacoesContext';
 import { CORES } from '@/constants/theme';
 import { CSP_POLICY, sessionGuard } from '@/services/seguranca';
+import { registrarPushToken, desativarPushTokens } from '@/services/notificacoes';
 
 SplashScreen.preventAutoHideAsync();
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { signed, loading, logout } = useAuth();
+  const { signed, loading, logout, user } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+
+  // Registra push token ao logar (apenas nativo)
+  useEffect(() => {
+    if (signed && user?.id && Platform.OS !== 'web') {
+      registrarPushToken(user.id).catch(() => {});
+    }
+    if (!signed && user?.id) {
+      desativarPushTokens(user.id).catch(() => {});
+    }
+  }, [signed, user?.id]);
 
   // A07 — Session timeout: desloga após 30min de inatividade
   useEffect(() => {
@@ -127,7 +139,9 @@ export default function RootLayout() {
     <AuthProvider>
       <EventosProvider>
         <ChatProvider>
-          <RootLayoutContent />
+          <NotificacoesProvider>
+            <RootLayoutContent />
+          </NotificacoesProvider>
         </ChatProvider>
       </EventosProvider>
     </AuthProvider>

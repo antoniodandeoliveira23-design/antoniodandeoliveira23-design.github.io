@@ -346,18 +346,29 @@ export const chatService = {
         if (!destinatarioId) return;
         if (!_deveEnviarEmailMsg(destinatarioId)) return;
 
-        // Busca nome do remetente para o email
+        // Busca nome do remetente para email + push
         supabase
           .from('profiles')
           .select('nome')
           .eq('id', meuId)
           .single()
           .then(({ data: perfil }) => {
-            emailService.novaMensagem({
-              usuarioId:     destinatarioId,
-              remetenteNome: perfil?.nome ?? 'Alguém',
-              preview:       texto.trim().slice(0, 100),
-            });
+            const remetenteNome = perfil?.nome ?? 'Alguém';
+            const preview       = texto.trim().slice(0, 100);
+
+            // Email (fire-and-forget)
+            emailService.novaMensagem({ usuarioId: destinatarioId, remetenteNome, preview });
+
+            // Push notification (fire-and-forget)
+            supabase.functions.invoke('enviar-push', {
+              body: {
+                usuario_id: destinatarioId,
+                tipo:       'nova_mensagem',
+                titulo:     `Nova mensagem de ${remetenteNome}`,
+                mensagem:   preview,
+                dados:      { remetente_id: meuId },
+              },
+            }).catch(() => {});
           });
       });
 

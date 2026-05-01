@@ -176,6 +176,19 @@ serve(async (req) => {
           payment.id,
           plano?.tipo,
         );
+
+        // ── Fire-and-forget: push notification ────────────
+        fetch(`${FUNCTIONS_URL}/enviar-push`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ALERT_SECRET}` },
+          body: JSON.stringify({
+            usuario_id: pagamento.usuario_id,
+            tipo:       'pagamento_confirmado',
+            titulo:     'Pagamento confirmado ✅',
+            mensagem:   `Seu plano ${plano?.tipo ?? ''} foi ativado com sucesso.`,
+            dados:      { plano_id: pagamento.plano_id ?? '', id_externo: payment.id },
+          }),
+        }).catch(() => {});
       }
 
       // Se vencido/cancelado — revoga o plano

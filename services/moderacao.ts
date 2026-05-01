@@ -160,20 +160,38 @@ export const moderacaoService = {
       if (!evento?.criador_id) return;
 
       if (tipo === 'aprovado') {
-        // ── Fire-and-forget: email de aprovação ─────────────
+        // ── Fire-and-forget: email + push de aprovação ──────
         emailService.eventoAprovado({
           usuarioId:   evento.criador_id,
           eventoNome:  evento.nome,
           local:       evento.local,
           dataInicio:  evento.data_inicio,
         });
+        supabase.functions.invoke('enviar-push', {
+          body: {
+            usuario_id: evento.criador_id,
+            tipo:       'evento_aprovado',
+            titulo:     'Evento aprovado! 🎉',
+            mensagem:   `Seu evento "${evento.nome}" foi aprovado e está ao vivo no AGORA.`,
+            dados:      { evento_id: eventoId },
+          },
+        }).catch(() => {});
       } else {
-        // ── Fire-and-forget: email de rejeição ──────────────
+        // ── Fire-and-forget: email + push de rejeição ───────
         emailService.eventoRejeitado({
           usuarioId:  evento.criador_id,
           eventoNome: evento.nome,
           motivo:     motivo || 'Não informado. Entre em contato com o suporte.',
         });
+        supabase.functions.invoke('enviar-push', {
+          body: {
+            usuario_id: evento.criador_id,
+            tipo:       'evento_rejeitado',
+            titulo:     'Evento não aprovado',
+            mensagem:   `"${evento.nome}" não foi aprovado. Motivo: ${motivo || 'Verifique o email para detalhes.'}`,
+            dados:      { evento_id: eventoId },
+          },
+        }).catch(() => {});
       }
 
       await registrarAcao({

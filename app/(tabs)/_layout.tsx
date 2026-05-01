@@ -3,9 +3,11 @@ import { Tabs } from 'expo-router';
 import { Platform, StyleSheet } from 'react-native';
 import { CORES } from '@/constants/theme';
 import { useChat } from '@/contexts/ChatContext';
+import { useNotificacoes } from '@/contexts/NotificacoesContext';
 
 export default function TabLayout() {
   const { totalNaoLidas } = useChat();
+  const { totalNaoLidas: totalNotif } = useNotificacoes();
 
   return (
     <Tabs
@@ -53,6 +55,8 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={size} color={color} />
           ),
+          tabBarBadge: totalNotif > 0 ? (totalNotif > 9 ? '9+' : totalNotif) : undefined,
+          tabBarBadgeStyle: { backgroundColor: CORES.roxoClaro, fontSize: 10, minWidth: 16, height: 16, lineHeight: 16 },
         }}
       />
     </Tabs>
