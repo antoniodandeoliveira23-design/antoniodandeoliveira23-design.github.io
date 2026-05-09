@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEventos } from '@/contexts/EventosContext';
@@ -46,11 +47,89 @@ export default function CriarEvento() {
   const [descricao, setDescricao] = useState('');
   const [local, setLocal] = useState('');
   const [categoria, setCategoria] = useState<CategoriaEvento>('outro');
-  const [dataInicio, setDataInicio] = useState('');
   const [exclusivoMulheres, setExclusivoMulheres] = useState(false);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState('');
   const [modalSucesso, setModalSucesso] = useState(false);
+
+  // ── DateTimePicker nativo ─────────────────────────────────────
+  // Web usa <input type="datetime-local"> diretamente no JSX
+  const [dataObj, setDataObj]                   = useState<Date | null>(null);
+  const [dataInicioWeb, setDataInicioWeb]       = useState('');          // só web
+  const [pickerVisivel, setPickerVisivel]       = useState(false);
+  const [pickerModo, setPickerModo]             = useState<'date' | 'time'>('date');
+  // Valor temporário iOS (o picker iOS não fecha ao selecionar — aguarda OK)
+  const [pickerTempIOS, setPickerTempIOS]       = useState<Date>(new Date());
+
+  /** Texto legível exibido no campo */
+  const dataFormatada = dataObj
+    ? dataObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) +
+      ' às ' +
+      dataObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    : 'Toque para selecionar';
+
+  /** Abre o picker de data (primeiro passo) */
+  const abrirPickerData = () => {
+    setPickerTempIOS(dataObj ?? new Date());
+    setPickerModo('date');
+    setPickerVisivel(true);
+  };
+
+  /**
+   * Handler unificado Android.
+   * Android fecha automaticamente ao pressionar OK → onChange dispara uma vez.
+   * Encadeamos: data → depois hora → fecha tudo.
+   */
+  const onChangeAndroid = (_evt: DateTimePickerEvent, selected?: Date) => {
+    setPickerVisivel(false);
+    if (!selected) return;
+
+    if (pickerModo === 'date') {
+      const base = dataObj ? new Date(dataObj) : new Date();
+      base.setFullYear(selected.getFullYear(), selected.getMonth(), selected.getDate());
+      setDataObj(base);
+      // Abre imediatamente o picker de hora
+      setTimeout(() => {
+        setPickerModo('time');
+        setPickerVisivel(true);
+      }, 80);
+    } else {
+      // hora selecionada
+      const base = dataObj ? new Date(dataObj) : new Date();
+      base.setHours(selected.getHours(), selected.getMinutes(), 0, 0);
+      setDataObj(base);
+    }
+  };
+
+  /**
+   * Handler iOS — o picker spinner é inline, não fecha sozinho.
+   * Captura valor temporário; confirma via botão "OK".
+   */
+  const onChangeIOS = (_evt: DateTimePickerEvent, selected?: Date) => {
+    if (selected) setPickerTempIOS(selected);
+  };
+
+  const confirmarPickerIOS = () => {
+    if (pickerModo === 'date') {
+      const base = dataObj ? new Date(dataObj) : new Date();
+      base.setFullYear(pickerTempIOS.getFullYear(), pickerTempIOS.getMonth(), pickerTempIOS.getDate());
+      setDataObj(base);
+      // Avança para hora no mesmo modal
+      setPickerModo('time');
+      setPickerTempIOS(base);
+    } else {
+      const base = dataObj ? new Date(dataObj) : new Date();
+      base.setHours(pickerTempIOS.getHours(), pickerTempIOS.getMinutes(), 0, 0);
+      setDataObj(base);
+      setPickerVisivel(false);
+      setPickerModo('date');
+    }
+  };
+
+  const cancelarPickerIOS = () => {
+    setPickerVisivel(false);
+    setPickerModo('date');
+  };
 
   // Geocoding: captura GPS silenciosamente em background ao abrir a tela
   const coordsRef = useRef<Coordenadas>(COORDS_PADRAO);
@@ -151,7 +230,9 @@ export default function CriarEvento() {
           lat: latitude,
           lng: longitude,
           categoria,
-          data_inicio: dataInicio ? new Date(dataInicio).toISOString() : new Date().toISOString(),
+          data_inicio: Platform.OS === 'web'
+            ? (dataInicioWeb ? new Date(dataInicioWeb).toISOString() : new Date().toISOString())
+            : (dataObj ? dataObj.toISOString() : new Date().toISOString()),
           exclusivo_mulheres: exclusivoMulheres,
           imagem_url: imagemUrl,
         },
@@ -232,13 +313,15 @@ export default function CriarEvento() {
         </View>
 
         <Text style={styles.label}>Data e hora</Text>
+
+        {/* ── Web: input nativo HTML ─────────────────────────── */}
         {Platform.OS === 'web' ? (
           <View style={styles.inputWrapper}>
             <Ionicons name="calendar-outline" size={18} color={CORES.cinza} style={styles.inputIcon} />
             <input
               type="datetime-local"
-              value={dataInicio}
-              onChange={(e: any) => setDataInicio(e.target.value)}
+              value={dataInicioWeb}
+              onChange={(e: any) => setDataInicioWeb(e.target.value)}
               style={{
                 flex: 1,
                 background: 'transparent',
@@ -252,10 +335,61 @@ export default function CriarEvento() {
             />
           </View>
         ) : (
-          <View style={styles.inputWrapper}>
+          /* ── iOS / Android: DateTimePicker nativo ─────────── */
+          <TouchableOpacity style={styles.inputWrapper} onPress={abrirPickerData} activeOpacity={0.8}>
             <Ionicons name="calendar-outline" size={18} color={CORES.cinza} style={styles.inputIcon} />
-            <TextInput style={styles.input} placeholder="DD/MM/AAAA HH:MM" placeholderTextColor={CORES.cinza} value={dataInicio} onChangeText={setDataInicio} />
-          </View>
+            <Text style={[styles.input, !dataObj && { color: CORES.cinza }]}>
+              {dataFormatada}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={CORES.cinza} />
+          </TouchableOpacity>
+        )}
+
+        {/* ── Android: DateTimePicker renderizado fora do modal ─ */}
+        {Platform.OS === 'android' && pickerVisivel && (
+          <DateTimePicker
+            value={dataObj ?? new Date()}
+            mode={pickerModo}
+            display="default"
+            onChange={onChangeAndroid}
+            minimumDate={new Date()}
+          />
+        )}
+
+        {/* ── iOS: Modal com spinner + botões Cancelar / OK ──── */}
+        {Platform.OS === 'ios' && (
+          <Modal visible={pickerVisivel} transparent animationType="slide">
+            <View style={styles.pickerOverlay}>
+              <View style={styles.pickerContainer}>
+                {/* Cabeçalho */}
+                <View style={styles.pickerHeader}>
+                  <TouchableOpacity onPress={cancelarPickerIOS}>
+                    <Text style={styles.pickerCancelar}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.pickerTitulo}>
+                    {pickerModo === 'date' ? '📅 Escolha a data' : '🕐 Escolha o horário'}
+                  </Text>
+                  <TouchableOpacity onPress={confirmarPickerIOS}>
+                    <Text style={styles.pickerConfirmar}>
+                      {pickerModo === 'date' ? 'Próximo' : 'OK'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                {/* Spinner */}
+                <DateTimePicker
+                  value={pickerTempIOS}
+                  mode={pickerModo}
+                  display="spinner"
+                  onChange={onChangeIOS}
+                  minimumDate={pickerModo === 'date' ? new Date() : undefined}
+                  locale="pt-BR"
+                  textColor="#FFFFFF"
+                  themeVariant="dark"
+                  style={styles.pickerSpinner}
+                />
+              </View>
+            </View>
+          </Modal>
         )}
 
         {/* Categoria */}
@@ -410,6 +544,46 @@ const styles = StyleSheet.create({
   switchDesc: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.xs, marginTop: 4 },
 
   erroText: { color: CORES.erro, fontSize: FONT_SIZE.xs, marginBottom: SPACING.sm },
+
+  // DateTimePicker iOS modal
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'flex-end',
+  },
+  pickerContainer: {
+    backgroundColor: '#1E0F38',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 30,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  pickerTitulo: {
+    color: CORES.branco,
+    fontSize: FONT_SIZE.md,
+    fontWeight: '700',
+  },
+  pickerCancelar: {
+    color: CORES.cinzaClaro,
+    fontSize: FONT_SIZE.sm,
+    fontWeight: '600',
+  },
+  pickerConfirmar: {
+    color: CORES.roxoClaro,
+    fontSize: FONT_SIZE.sm,
+    fontWeight: '700',
+  },
+  pickerSpinner: {
+    height: 200,
+  },
 
   ctaBtn: { paddingVertical: 14, backgroundColor: CORES.roxo, borderRadius: RADIUS.sm, alignItems: 'center', marginTop: SPACING.sm },
   ctaBtnDisabled: { opacity: 0.6 },

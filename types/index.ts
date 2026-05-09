@@ -117,6 +117,30 @@ export interface Favorito {
   criado_em: string;
 }
 
+// === INSCRIÇÕES ===
+
+export type StatusInscricao = 'confirmada' | 'cancelada' | 'lista_espera';
+
+export interface Inscricao {
+  id: string;
+  usuario_id: string;
+  evento_id: string;
+  status: StatusInscricao;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export interface InscricaoComEvento extends Inscricao {
+  eventos: {
+    id: string;
+    nome: string;
+    local: string;
+    data_inicio: string;
+    imagem_url: string | null;
+    categoria: string;
+  };
+}
+
 // === PRODUTOS (PJ) ===
 
 export type CategoriaProduto = 'alimentacao' | 'vestuario' | 'servicos' | 'artesanato' | 'tecnologia' | 'saude' | 'outro';

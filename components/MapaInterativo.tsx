@@ -1,5 +1,14 @@
+/**
+ * components/MapaInterativo.tsx  ← WEB ONLY
+ *
+ * Carregada pelo Metro apenas em web (Platform.OS === 'web').
+ * Para iOS/Android o Metro usa MapaInterativo.native.tsx automaticamente.
+ *
+ * Usa Leaflet via CDN (dark theme CartoDb) — sem API key necessária.
+ */
+
 import React, { useEffect, useRef, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import type { Evento } from '@/types';
 
 const ICON_EMOJI: Record<string, string> = {
@@ -37,7 +46,6 @@ export default function MapaInterativo({
   onEventoPressRef.current = onEventoPress;
 
   useEffect(() => {
-    if (Platform.OS !== 'web') return;
 
     // Load Leaflet CSS
     if (!document.getElementById('leaflet-css')) {
@@ -98,7 +106,7 @@ export default function MapaInterativo({
 
   // Update markers when eventos change OR map becomes ready
   useEffect(() => {
-    if (Platform.OS !== 'web' || !mapReady || !mapRef.current) return;
+    if (!mapReady || !mapRef.current) return;
     const L = (window as any).L;
     if (!L) return;
 
@@ -177,10 +185,6 @@ export default function MapaInterativo({
       mapRef.current.fitBounds(group.getBounds().pad(0.3));
     }
   }, [eventos, mapReady]);
-
-  if (Platform.OS !== 'web') {
-    return <View style={styles.container} />;
-  }
 
   return (
     <View style={styles.container}>

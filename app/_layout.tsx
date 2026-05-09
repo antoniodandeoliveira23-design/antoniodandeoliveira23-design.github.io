@@ -123,6 +123,7 @@ function RootLayoutContent() {
         <Stack.Screen name="ajuda" options={{ presentation: 'modal' }} />
         <Stack.Screen name="editar-perfil" options={{ presentation: 'modal' }} />
         <Stack.Screen name="favoritos" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="minhas-inscricoes" options={{ presentation: 'modal' }} />
         <Stack.Screen name="admin/moderacao" options={{ presentation: 'modal' }} />
         <Stack.Screen name="meus-eventos" options={{ presentation: 'modal' }} />
         <Stack.Screen name="cadastro-empresa" options={{ presentation: 'modal' }} />

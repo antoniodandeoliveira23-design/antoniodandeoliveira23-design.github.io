@@ -21,6 +21,7 @@ import ModalDenuncia from '@/components/ModalDenuncia';
 import MapaInterativo from '@/components/MapaInterativo';
 import { produtosService } from '@/services/produtos';
 import { localizacaoService, type Coordenadas } from '@/services/localizacao';
+import { inscricoesService } from '@/services/inscricoes';
 import type { Evento, CategoriaEvento, FiltroTemporal, Produto } from '@/types';
 
 const ICON_MAP: Record<string, string> = {
@@ -69,6 +70,7 @@ export default function HomeScreen() {
   const [modalVisivel, setModalVisivel] = useState(false);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [inscritos, setInscritos] = useState<Set<string>>(new Set());
+  const [loadingInscricao, setLoadingInscricao] = useState<string | null>(null);
 
   // R8: Denúncia
   const [denunciaVisivel, setDenunciaVisivel] = useState(false);
@@ -102,6 +104,13 @@ export default function HomeScreen() {
   useEffect(() => {
     produtosService.listar().then(r => setProdutos(r.dados));
   }, []);
+
+  // Carrega IDs de eventos em que o usuário está inscrito
+  useEffect(() => {
+    if (user?.id) {
+      inscricoesService.listarIds(user.id).then(setInscritos).catch(() => {});
+    }
+  }, [user?.id]);
 
   const inicializarGPS = async () => {
     setLoadingGeo(true);
@@ -158,13 +167,30 @@ export default function HomeScreen() {
     }
   };
 
-  const toggleInscricao = (eventoId: string) => {
+  const toggleInscricao = async (eventoId: string) => {
+    if (!user?.id || loadingInscricao === eventoId) return;
+    const estaInscrito = inscritos.has(eventoId);
+
+    // Atualização otimista
     setInscritos(prev => {
       const next = new Set(prev);
-      if (next.has(eventoId)) next.delete(eventoId);
-      else next.add(eventoId);
+      estaInscrito ? next.delete(eventoId) : next.add(eventoId);
       return next;
     });
+
+    setLoadingInscricao(eventoId);
+    try {
+      await inscricoesService.toggle(eventoId, user.id, estaInscrito);
+    } catch {
+      // Rollback em caso de erro
+      setInscritos(prev => {
+        const next = new Set(prev);
+        estaInscrito ? next.add(eventoId) : next.delete(eventoId);
+        return next;
+      });
+    } finally {
+      setLoadingInscricao(null);
+    }
   };
 
   // Filtrar por período temporal (fluxograma: Hoje, Semana, Mês, Semestre)
@@ -524,17 +550,28 @@ export default function HomeScreen() {
               </TouchableOpacity>
               {eventoSelecionado && (
                 <TouchableOpacity
-                  style={[styles.ctaBtn, inscritos.has(eventoSelecionado.id) && styles.ctaBtnInscrito]}
+                  style={[
+                    styles.ctaBtn,
+                    inscritos.has(eventoSelecionado.id) && styles.ctaBtnInscrito,
+                    loadingInscricao === eventoSelecionado.id && styles.ctaBtnLoading,
+                  ]}
                   onPress={() => toggleInscricao(eventoSelecionado.id)}
+                  disabled={loadingInscricao === eventoSelecionado.id}
                 >
-                  <Ionicons
-                    name={inscritos.has(eventoSelecionado.id) ? 'checkmark-circle' : 'ticket'}
-                    size={16}
-                    color={CORES.branco}
-                  />
-                  <Text style={styles.ctaBtnText}>
-                    {inscritos.has(eventoSelecionado.id) ? 'Inscrito' : 'Participar'}
-                  </Text>
+                  {loadingInscricao === eventoSelecionado.id ? (
+                    <ActivityIndicator size="small" color={CORES.branco} />
+                  ) : (
+                    <>
+                      <Ionicons
+                        name={inscritos.has(eventoSelecionado.id) ? 'checkmark-circle' : 'ticket'}
+                        size={16}
+                        color={CORES.branco}
+                      />
+                      <Text style={styles.ctaBtnText}>
+                        {inscritos.has(eventoSelecionado.id) ? 'Inscrito ✓' : 'Participar'}
+                      </Text>
+                    </>
+                  )}
                 </TouchableOpacity>
               )}
             </View>
@@ -656,7 +693,8 @@ const styles = StyleSheet.create({
 
   actionRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.sm },
   actionCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: CORES.background, justifyContent: 'center', alignItems: 'center' },
-  ctaBtnInscrito: { backgroundColor: CORES.sucesso },
+  ctaBtnInscrito: { backgroundColor: CORES.sucesso ?? '#4CAF50' },
+  ctaBtnLoading: { opacity: 0.7 },
   ctaRow: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.sm },
   ctaSecundario: { flex: 1, paddingVertical: 12, backgroundColor: CORES.background, borderRadius: RADIUS.sm, alignItems: 'center', justifyContent: 'center' },
   ctaSecundarioText: { color: CORES.cinzaClaro, fontWeight: '600' },

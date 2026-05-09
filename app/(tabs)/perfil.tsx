@@ -20,6 +20,7 @@ const MENU_ITEMS = [
   { icon: 'person-outline', label: 'Editar perfil', route: '/editar-perfil' },
   { icon: 'calendar-outline', label: 'Meus Eventos', route: '/meus-eventos' },
   { icon: 'heart-outline', label: 'Favoritos', route: '/favoritos' },
+  { icon: 'ticket-outline', label: 'Minhas Inscrições', route: '/minhas-inscricoes' },
   { icon: 'bag-handle-outline', label: 'Produtos', route: '/produtos' },
   { icon: 'business-outline', label: 'Cadastro Empresa', route: '/cadastro-empresa' },
   { icon: 'notifications-outline', label: 'Notificações', route: '/notificacoes' },
