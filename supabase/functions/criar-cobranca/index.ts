@@ -49,7 +49,7 @@ interface CriarCobrancaPayload {
 // Asaas API helpers
 // ─────────────────────────────────────────────────────────────────
 
-async function asaasRequest(path: string, method: string, body?: unknown) {
+export async function asaasRequest(path: string, method: string, body?: unknown) {
   if (!ASAAS_TOKEN) throw new Error('ASAAS_ACCESS_TOKEN não configurado');
 
   const resp = await fetch(`${ASAAS_BASE}${path}`, {
@@ -72,13 +72,13 @@ async function asaasRequest(path: string, method: string, body?: unknown) {
 }
 
 /** Busca cliente Asaas por email — retorna ID ou null */
-async function buscarClienteAsaas(email: string): Promise<string | null> {
+export async function buscarClienteAsaas(email: string): Promise<string | null> {
   const data = await asaasRequest(`/customers?email=${encodeURIComponent(email)}&limit=1`, 'GET');
   return data?.data?.[0]?.id ?? null;
 }
 
 /** Cria cliente no Asaas */
-async function criarClienteAsaas(params: {
+export async function criarClienteAsaas(params: {
   nome:  string;
   email: string;
   cnpj?: string;
@@ -96,7 +96,7 @@ async function criarClienteAsaas(params: {
 }
 
 /** Data de vencimento: amanhã */
-function dataVencimento(): string {
+export function dataVencimento(): string {
   const d = new Date();
   d.setDate(d.getDate() + 1);
   return d.toISOString().slice(0, 10);
@@ -106,7 +106,7 @@ function dataVencimento(): string {
 // Handler principal
 // ─────────────────────────────────────────────────────────────────
 
-serve(async (req: Request) => {
+export async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return handleCors();
   if (req.method !== 'POST')   return errorResponse('Method Not Allowed', 405);
 
@@ -230,4 +230,6 @@ serve(async (req: Request) => {
     console.error('[criar-cobranca] Erro:', err);
     return errorResponse(`Erro ao criar cobrança: ${String(err)}`, 502);
   }
-});
+}
+
+if (!Deno.env.get('DENO_TESTING')) { serve(handler); }

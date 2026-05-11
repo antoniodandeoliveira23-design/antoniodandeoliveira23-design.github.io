@@ -3,6 +3,9 @@
     "https://deno.land/std@0.168.0/http/server.ts": "https://deno.land/std@0.168.0/http/server.ts",
     "https://esm.sh/@supabase/supabase-js@2":       "https://esm.sh/@supabase/supabase-js@2.38.4"
   },
+  "tasks": {
+    "test": "deno test --allow-env --allow-net --allow-read --no-check"
+  },
   "lint": {
     "rules": {
       "exclude": ["no-explicit-any"]

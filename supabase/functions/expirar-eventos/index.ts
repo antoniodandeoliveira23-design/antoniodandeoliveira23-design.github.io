@@ -68,7 +68,7 @@ interface ResultadoExpiracao {
   detalhes:    { id: string; nome: string; data_inicio: string }[];
 }
 
-async function expirarEventos(): Promise<ResultadoExpiracao> {
+export async function expirarEventos(): Promise<ResultadoExpiracao> {
   const sb = getAdminClient();
   const agora = new Date();
   const corte = new Date(agora.getTime() - 24 * 60 * 60_000); // 24h atrás
@@ -110,7 +110,7 @@ async function expirarEventos(): Promise<ResultadoExpiracao> {
     severidade: lista.length >= 10 ? 'aviso' : 'info',
     detalhes:   { total: lista.length, ids: lista.map((e: { id: string }) => e.id).slice(0, 20) },
     resultado:  'sucesso',
-  }).catch(() => {});
+  }).then(null, () => {});
 
   return {
     expirados: lista.length,
@@ -124,7 +124,7 @@ async function expirarEventos(): Promise<ResultadoExpiracao> {
 // Email de relatório para o admin
 // ─────────────────────────────────────────────────────────────────
 
-async function enviarRelatorioAdmin(resultado: ResultadoExpiracao): Promise<void> {
+export async function enviarRelatorioAdmin(resultado: ResultadoExpiracao): Promise<void> {
   if (!ADMIN_EMAIL || !ALERT_SECRET) return;
 
   const linhas = resultado.detalhes.slice(0, 15).map(e => {
@@ -220,7 +220,7 @@ async function enviarRelatorioAdmin(resultado: ResultadoExpiracao): Promise<void
 // Handler
 // ─────────────────────────────────────────────────────────────────
 
-serve(async (req: Request) => {
+export async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return handleCors();
 
   // Valida autenticação: só sistema ou admin podem chamar
@@ -258,8 +258,10 @@ serve(async (req: Request) => {
       severidade: 'critico',
       detalhes:   { erro: String(err) },
       resultado:  'falha',
-    }).catch(() => {});
+    }).then(null, () => {});
 
     return errorResponse(`Erro interno: ${String(err)}`, 500);
   }
-});
+}
+
+if (!Deno.env.get('DENO_TESTING')) { serve(handler); }

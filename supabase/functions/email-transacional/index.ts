@@ -44,7 +44,7 @@ const APP_URL        = Deno.env.get('APP_URL')    ?? 'https://agora-vilhena.verc
 // ─────────────────────────────────────────────────────────────────
 // Formata ISO date → dd/mm/aaaa em horário de Vilhena (UTC-4)
 // ─────────────────────────────────────────────────────────────────
-function formatarData(iso: string): string {
+export function formatarData(iso: string): string {
   if (!iso) return '—';
   try {
     return new Date(iso).toLocaleDateString('pt-BR', {
@@ -96,7 +96,7 @@ const S = {
   muted:   `color:#888;font-size:12px;`,
 };
 
-function layout(body: string): string {
+export function layout(body: string): string {
   return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="${S.wrapper}">
@@ -118,7 +118,7 @@ function layout(body: string): string {
 type TemplateResult = { subject: string; html: string };
 type TemplateData   = Record<string, string>;
 
-const TEMPLATES: Record<string, (nome: string, d: TemplateData) => TemplateResult> = {
+export const TEMPLATES: Record<string, (nome: string, d: TemplateData) => TemplateResult> = {
 
   boas_vindas: (nome, _d) => ({
     subject: `Bem-vindo ao AGORA, ${nome}! 🎉`,
@@ -371,7 +371,7 @@ async function enviarResend(payload: ResendPayload, idempotencyKey?: string): Pr
 // Handler principal
 // ─────────────────────────────────────────────────────────────────
 
-serve(async (req: Request) => {
+export async function handler(req: Request): Promise<Response> {
   // Preflight CORS
   if (req.method === 'OPTIONS') return handleCors();
   if (req.method !== 'POST')   return errorResponse('Method Not Allowed', 405);
@@ -462,4 +462,6 @@ serve(async (req: Request) => {
     console.error('[email] Falha ao enviar:', err);
     return errorResponse(`Falha ao enviar: ${String(err)}`, 502);
   }
-});
+}
+
+if (!Deno.env.get('DENO_TESTING')) { serve(handler); }

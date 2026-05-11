@@ -22,7 +22,7 @@ import { corsHeaders, jsonResponse, errorResponse } from '../_shared/cors.ts';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
-serve(async (req: Request) => {
+export async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
@@ -114,4 +114,6 @@ serve(async (req: Request) => {
     console.error('[push] Erro inesperado:', err);
     return errorResponse('Erro interno', 500);
   }
-});
+}
+
+if (!Deno.env.get('DENO_TESTING')) { serve(handler); }

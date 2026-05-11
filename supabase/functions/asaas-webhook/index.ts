@@ -39,7 +39,7 @@ function validarAssinatura(req: Request): boolean {
 // ─────────────────────────────────────────────────────
 // Mapeamento de eventos Asaas → status interno
 // ─────────────────────────────────────────────────────
-const STATUS_MAP: Record<string, string> = {
+export const STATUS_MAP: Record<string, string> = {
   PAYMENT_RECEIVED:           'pago',
   PAYMENT_CONFIRMED:          'pago',
   PAYMENT_OVERDUE:            'vencido',
@@ -88,7 +88,7 @@ async function enviarEmailPagamento(
   }
 }
 
-serve(async (req) => {
+export async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return handleCors();
   if (req.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405, headers: corsHeaders });
@@ -229,17 +229,19 @@ serve(async (req) => {
       severidade: 'critico',
       detalhes:   { evento: event, erro: String(err) },
       resultado:  'falha',
-    }).catch(() => {});
+    }).then(null, () => {});
 
     return errorResponse('Erro interno', 500);
   }
-});
+}
+
+if (!Deno.env.get('DENO_TESTING')) { serve(handler); }
 
 // ─────────────────────────────────────────────────────
 // Mapa de validade por UUID real dos planos (dias)
 // Fonte: tabela `planos` do banco de produção
 // ─────────────────────────────────────────────────────
-const PLANOS_VALIDADE: Record<string, number> = {
+export const PLANOS_VALIDADE: Record<string, number> = {
   'cbd84bb2-b351-40fa-acc5-d2f55feb9eee': 30,   // Avulso Básico
   'c909438d-e517-4c3e-87de-aff1a2074d8e': 30,   // Mensal Pro
   'fe218f6d-13e9-45b1-9f03-41cda44329b1': 90,   // Trimestral Business
@@ -247,7 +249,7 @@ const PLANOS_VALIDADE: Record<string, number> = {
 };
 
 // Fallback por tipo — cobre planos criados futuramente
-const TIPO_VALIDADE: Record<string, number> = {
+export const TIPO_VALIDADE: Record<string, number> = {
   avulso:     30,
   mensal:     30,
   trimestral: 90,
@@ -258,7 +260,7 @@ const TIPO_VALIDADE: Record<string, number> = {
 // ─────────────────────────────────────────────────────
 // Calcula data de validade por ID ou tipo do plano
 // ─────────────────────────────────────────────────────
-function calcularValidade(planoId: string, tipo?: string): string {
+export function calcularValidade(planoId: string, tipo?: string): string {
   const agora  = new Date();
   const dias   =
     PLANOS_VALIDADE[planoId] ??

@@ -65,7 +65,7 @@ async function enviarDiscord(embed: Record<string, unknown>): Promise<void> {
   }).catch(err => console.warn('[alertas-criticos] Discord falhou:', err));
 }
 
-function formatarAuditEmbed(record: Record<string, unknown>): Record<string, unknown> {
+export function formatarAuditEmbed(record: Record<string, unknown>): Record<string, unknown> {
   const icone = ICONES[String(record.categoria ?? '')] ?? '📋';
   const sev   = String(record.severidade ?? 'info');
   return {
@@ -89,7 +89,7 @@ function formatarAuditEmbed(record: Record<string, unknown>): Record<string, unk
   };
 }
 
-function formatarAnomaliaEmbed(record: Record<string, unknown>): Record<string, unknown> {
+export function formatarAnomaliaEmbed(record: Record<string, unknown>): Record<string, unknown> {
   const tipo  = String(record.tipo ?? 'desconhecido');
   const icone = ICONES[tipo] ?? '⚠️';
   return {
@@ -159,7 +159,7 @@ async function enviarEmailCritico(
 // Handler principal
 // ─────────────────────────────────────────────────────────────────
 
-serve(async (req: Request) => {
+export async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return handleCors();
 
   // Valida segredo
@@ -232,4 +232,6 @@ serve(async (req: Request) => {
     console.error('[alertas-criticos] erro:', err);
     return errorResponse(`Erro interno: ${String(err)}`, 500);
   }
-});
+}
+
+if (!Deno.env.get('DENO_TESTING')) { serve(handler); }
