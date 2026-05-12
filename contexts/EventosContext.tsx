@@ -57,7 +57,7 @@ interface EventosContextData {
   // CRUD
   criarEvento: (
     data: CriarEventoData,
-    tipoContaDemo?: 'pf' | 'pj' | 'gov',
+    tipoContaDemo?: 'pf' | 'pj' | 'gov' | 'admin',
     verificadoDemo?: boolean
   ) => Promise<Evento>;
   editarEvento: (eventoId: string, updates: Partial<CriarEventoData>) => Promise<Evento>;
@@ -180,7 +180,7 @@ export function EventosProvider({ children }: { children: React.ReactNode }) {
   // ── Criar evento ───────────────────────────────────────
   const criarEvento = useCallback(async (
     data: CriarEventoData,
-    tipoContaDemo?: 'pf' | 'pj' | 'gov',
+    tipoContaDemo?: 'pf' | 'pj' | 'gov' | 'admin',
     verificadoDemo?: boolean,
   ): Promise<Evento> => {
     setLoading(true);

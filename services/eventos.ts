@@ -5,6 +5,22 @@ import { validacaoSemantica } from './validacao-semantica';
 import { registrarAcao, registrarAnomalia } from './auditoria';
 import { emailService } from './email';
 
+/**
+ * Retorna o usuário autenticado real do Supabase, ou null se:
+ *  - Supabase não estiver configurado, OU
+ *  - O usuário entrou pelo modo demo (sem sessão real)
+ */
+async function getSupabaseUser() {
+  if (!supabaseConfigured) return null;
+  const { data: { user } } = await supabase.auth.getUser();
+  return user ?? null;
+}
+
+/** True quando devemos usar dados locais de demo (sem sessão Supabase real) */
+async function isDemo(): Promise<boolean> {
+  return (await getSupabaseUser()) === null;
+}
+
 // ─────────────────────────────────────────────────────────
 // Tipos
 // ─────────────────────────────────────────────────────────
@@ -192,14 +208,18 @@ export const eventosService = {
   },
 
   // ── CRIAR ──────────────────────────────────────────────
-  async criar(eventoData: CriarEventoData, tipoContaDemo?: 'pf' | 'pj' | 'gov', verificadoDemo?: boolean): Promise<Evento> {
-    if (!supabaseConfigured) {
+  async criar(eventoData: CriarEventoData, tipoContaDemo?: 'pf' | 'pj' | 'gov' | 'admin', verificadoDemo?: boolean): Promise<Evento> {
+    const user = await getSupabaseUser();
+
+    // Modo demo: sem sessão Supabase real (login demo ou Supabase não configurado)
+    if (!user) {
       const tipo = tipoContaDemo || 'pf';
       if (tipo === 'gov' && !verificadoDemo) throw new Error('GOV_NAO_VERIFICADO');
 
       const ehComercialDemo = validacaoSemantica.detectarConteudoComercial(
         eventoData.nome + ' ' + eventoData.descricao
       );
+      // Admin e PJ podem publicar conteúdo comercial
       if ((tipo === 'pf' || tipo === 'gov') && ehComercialDemo) throw new Error('BLOQUEIO_COMERCIAL');
 
       const comercialDemo = tipo === 'pj';
@@ -208,7 +228,8 @@ export const eventosService = {
         criador_id: 'demo',
         ...eventoData,
         comercial: comercialDemo,
-        status: comercialDemo ? 'pendente' : 'aprovado',
+        // Admin aprova diretamente; PJ fica pendente
+        status: (tipo === 'admin' || !comercialDemo) ? 'aprovado' : 'pendente',
         pago: !comercialDemo,
         destaque: false,
         criado_em: new Date().toISOString(),
@@ -218,9 +239,7 @@ export const eventosService = {
       return novoDemo;
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Usuário não autenticado');
-
+    // ── Caminho real (sessão Supabase válida) ───────────────
     const { data: profile } = await supabase
       .from('profiles').select('tipo_conta, verificado').eq('id', user.id).single();
 

@@ -8,21 +8,22 @@
     "scheme": "agora",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.agora.app",
       "infoPlist": {
         "CFBundleURLTypes": [
           {
-            "CFBundleURLSchemes": ["agora", "com.agora.app"]
+            "CFBundleURLSchemes": [
+              "agora",
+              "com.agora.app"
+            ]
           }
         ],
         "NSCameraUsageDescription": "O AGORA precisa da câmera para fotografar eventos.",
         "NSPhotoLibraryUsageDescription": "O AGORA precisa acessar sua galeria para adicionar fotos ao perfil e eventos."
       }
     },
-
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#1A0B2E",
@@ -46,11 +47,13 @@
               "pathPrefix": "/auth/callback"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
-
     "web": {
       "bundler": "metro",
       "output": "static",
@@ -65,14 +68,12 @@
       "startUrl": "/",
       "scope": "/"
     },
-
     "notification": {
       "icon": "./assets/images/icon.png",
       "color": "#7B2FBE",
       "androidMode": "default",
       "androidCollapsedTitle": "#{unread_notifications} novas notificações"
     },
-
     "plugins": [
       "expo-router",
       [
@@ -88,12 +89,6 @@
         "expo-image-picker",
         {
           "photosPermission": "O AGORA precisa acessar sua galeria para adicionar fotos ao perfil e eventos."
-        }
-      ],
-      [
-        "react-native-maps",
-        {
-          "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY"
         }
       ],
       [
@@ -113,7 +108,6 @@
         }
       ]
     ],
-
     "experiments": {
       "typedRoutes": true
     }

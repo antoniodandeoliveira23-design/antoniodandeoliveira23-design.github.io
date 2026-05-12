@@ -236,7 +236,7 @@ export default function CriarEvento() {
           exclusivo_mulheres: exclusivoMulheres,
           imagem_url: imagemUrl,
         },
-        user?.tipo_conta as 'pf' | 'pj' | 'gov' | undefined,
+        user?.tipo_conta as 'pf' | 'pj' | 'gov' | 'admin' | undefined,
         user?.verificado,
       );
 
