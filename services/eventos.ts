@@ -290,15 +290,21 @@ export const eventosService = {
 
   // ── EDITAR ─────────────────────────────────────────────
   async editar(eventoId: string, updates: Partial<CriarEventoData>): Promise<Evento> {
-    if (!supabaseConfigured) {
-      const idx = DEMO_EVENTOS.findIndex((e) => e.id === eventoId);
-      if (idx === -1) throw new Error('Evento não encontrado');
-      DEMO_EVENTOS[idx] = { ...DEMO_EVENTOS[idx], ...updates };
-      return DEMO_EVENTOS[idx];
+    const user = await getSupabaseUser();
+    if (!user) {
+      // Demo: edita na lista local (DEMO_EVENTOS ou _demoPendentes)
+      const idxD = DEMO_EVENTOS.findIndex((e) => e.id === eventoId);
+      if (idxD !== -1) {
+        DEMO_EVENTOS[idxD] = { ...DEMO_EVENTOS[idxD], ...updates };
+        return DEMO_EVENTOS[idxD];
+      }
+      const idxP = _demoPendentes.findIndex((e) => e.id === eventoId);
+      if (idxP !== -1) {
+        _demoPendentes[idxP] = { ..._demoPendentes[idxP], ...updates };
+        return _demoPendentes[idxP];
+      }
+      throw new Error('Evento não encontrado');
     }
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Usuário não autenticado');
 
     // Verifica se o usuário é dono ou admin
     const { data: evento } = await supabase.from('eventos').select('criador_id, nome, descricao').eq('id', eventoId).single();
@@ -333,14 +339,15 @@ export const eventosService = {
 
   // ── DELETAR (soft delete → status 'expirado') ──────────
   async deletar(eventoId: string): Promise<void> {
-    if (!supabaseConfigured) {
-      const idx = DEMO_EVENTOS.findIndex((e) => e.id === eventoId);
-      if (idx !== -1) DEMO_EVENTOS.splice(idx, 1);
+    const user = await getSupabaseUser();
+    if (!user) {
+      // Demo: remove da lista local
+      const idxD = DEMO_EVENTOS.findIndex((e) => e.id === eventoId);
+      if (idxD !== -1) DEMO_EVENTOS.splice(idxD, 1);
+      const idxP = _demoPendentes.findIndex((e) => e.id === eventoId);
+      if (idxP !== -1) _demoPendentes.splice(idxP, 1);
       return;
     }
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Usuário não autenticado');
 
     const { data: evento } = await supabase.from('eventos').select('criador_id').eq('id', eventoId).single();
     const { data: profile } = await supabase.from('profiles').select('tipo_conta').eq('id', user.id).single();
@@ -362,23 +369,20 @@ export const eventosService = {
 
   // ── FAVORITAR / DESFAVORITAR ───────────────────────────
   async favoritar(eventoId: string): Promise<void> {
-    if (!supabaseConfigured) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Não autenticado');
+    const user = await getSupabaseUser();
+    if (!user) return; // Demo: silencioso (favoritos não persistem)
     await supabase.from('favoritos').insert({ usuario_id: user.id, evento_id: eventoId, criado_em: new Date().toISOString() });
   },
 
   async desfavoritar(eventoId: string): Promise<void> {
-    if (!supabaseConfigured) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Não autenticado');
+    const user = await getSupabaseUser();
+    if (!user) return; // Demo: silencioso
     await supabase.from('favoritos').delete().eq('usuario_id', user.id).eq('evento_id', eventoId);
   },
 
   async listarFavoritos(): Promise<string[]> {
-    if (!supabaseConfigured) return [];
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
+    const user = await getSupabaseUser();
+    if (!user) return []; // Demo: sem favoritos persistidos
     const { data } = await supabase.from('favoritos').select('evento_id').eq('usuario_id', user.id);
     return data?.map((f) => f.evento_id) || [];
   },
