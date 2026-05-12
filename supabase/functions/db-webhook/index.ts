@@ -247,7 +247,7 @@ async function enviarEmailDireto(para: string, subject: string, html: string): P
 // Handler principal
 // ─────────────────────────────────────────────────────────────────
 
-serve(async (req: Request) => {
+export async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return handleCors();
   if (req.method !== 'POST')   return errorResponse('Method Not Allowed', 405);
 
@@ -281,4 +281,8 @@ serve(async (req: Request) => {
     console.error('[db-webhook] Erro ao processar:', err);
     return errorResponse(`Erro interno: ${String(err)}`, 500);
   }
-});
+}
+
+export { processar };
+
+if (!Deno.env.get('DENO_TESTING')) { serve(handler); }
