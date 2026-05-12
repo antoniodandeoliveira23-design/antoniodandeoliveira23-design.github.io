@@ -23,6 +23,12 @@ module.exports = {
     '**/*.test.{ts,tsx}',
   ],
 
+  // Exclui Edge Functions Deno (incompatíveis com Jest — têm seu próprio runner: deno test)
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/supabase/functions/',
+  ],
+
   // Exclui node_modules (exceto módulos que precisam ser transformados)
   transformIgnorePatterns: [
     'node_modules/(?!(' +

@@ -39,9 +39,12 @@ jest.mock('@/services/supabase', () => ({
 // ── Helpers de acesso ─────────────────────────────────────────────────────
 
 function loadModule() {
-  return jest.isolateModules(() =>
-    require('@/services/inscricoes')
-  ) as typeof import('@/services/inscricoes');
+  // jest.isolateModules retorna void — o módulo deve ser capturado dentro do callback
+  let mod!: typeof import('@/services/inscricoes');
+  jest.isolateModules(() => {
+    mod = require('@/services/inscricoes');
+  });
+  return mod;
 }
 
 // ── Suítes ────────────────────────────────────────────────────────────────

@@ -349,9 +349,14 @@ describe('eventosService — modo configurado (supabaseConfigured = true)', () =
       data_inicio: new Date().toISOString(), exclusivo_mulheres: false,
     };
 
-    it('lança "Usuário não autenticado" quando getUser retorna null', async () => {
+    it('usa caminho demo quando getUser retorna null (sem sessão real)', async () => {
+      // Com supabaseConfigured=true mas sem sessão Supabase ativa (login demo),
+      // criar() deve usar o caminho demo em vez de lançar erro de autenticação.
       mockAuthGetUser.mockResolvedValue({ data: { user: null }, error: null });
-      await expect(eventosService.criar(BASE_DATA)).rejects.toThrow('Usuário não autenticado');
+      const ev = await eventosService.criar(BASE_DATA, 'pf');
+      expect(ev.id).toMatch(/^demo-/);
+      expect(ev.status).toBe('aprovado');
+      expect(ev.criador_id).toBe('demo');
     });
 
     it('lança GOV_NAO_VERIFICADO para gov não verificado e registra auditoria', async () => {
@@ -406,9 +411,10 @@ describe('eventosService — modo configurado (supabaseConfigured = true)', () =
 
   // editar
   describe('editar()', () => {
-    it('lança "Usuário não autenticado" quando getUser retorna null', async () => {
+    it('lança "Evento não encontrado" quando getUser retorna null e id não existe no demo', async () => {
+      // Sem sessão real → caminho demo; 'e-1' não existe em DEMO_EVENTOS nem _demoPendentes
       mockAuthGetUser.mockResolvedValue({ data: { user: null }, error: null });
-      await expect(eventosService.editar('e-1', { nome: 'X' })).rejects.toThrow('Usuário não autenticado');
+      await expect(eventosService.editar('id-inexistente', { nome: 'X' })).rejects.toThrow('Evento não encontrado');
     });
 
     it('lança SEM_PERMISSAO quando não é dono nem admin', async () => {
@@ -464,9 +470,10 @@ describe('eventosService — modo configurado (supabaseConfigured = true)', () =
 
   // deletar
   describe('deletar()', () => {
-    it('lança "Usuário não autenticado" quando getUser retorna null', async () => {
+    it('resolve silenciosamente quando getUser retorna null (caminho demo)', async () => {
+      // Sem sessão real → caminho demo; remove da lista local (ou é no-op se não encontrar)
       mockAuthGetUser.mockResolvedValue({ data: { user: null }, error: null });
-      await expect(eventosService.deletar('e-1')).rejects.toThrow('Usuário não autenticado');
+      await expect(eventosService.deletar('id-inexistente')).resolves.toBeUndefined();
     });
 
     it('lança SEM_PERMISSAO quando não é dono nem admin', async () => {
@@ -498,9 +505,11 @@ describe('eventosService — modo configurado (supabaseConfigured = true)', () =
 
   // favoritar / desfavoritar / listarFavoritos
   describe('favoritar()', () => {
-    it('lança quando usuário não autenticado', async () => {
+    it('resolve silenciosamente quando getUser retorna null (caminho demo)', async () => {
+      // Sem sessão real → no-op silencioso (favoritos não persistem no demo)
       mockAuthGetUser.mockResolvedValue({ data: { user: null }, error: null });
-      await expect(eventosService.favoritar('e-1')).rejects.toThrow('Não autenticado');
+      await expect(eventosService.favoritar('e-1')).resolves.toBeUndefined();
+      expect(mockFrom).not.toHaveBeenCalled();
     });
 
     it('chama from("favoritos").insert e resolve', async () => {
@@ -511,9 +520,11 @@ describe('eventosService — modo configurado (supabaseConfigured = true)', () =
   });
 
   describe('desfavoritar()', () => {
-    it('lança quando usuário não autenticado', async () => {
+    it('resolve silenciosamente quando getUser retorna null (caminho demo)', async () => {
+      // Sem sessão real → no-op silencioso
       mockAuthGetUser.mockResolvedValue({ data: { user: null }, error: null });
-      await expect(eventosService.desfavoritar('e-1')).rejects.toThrow('Não autenticado');
+      await expect(eventosService.desfavoritar('e-1')).resolves.toBeUndefined();
+      expect(mockFrom).not.toHaveBeenCalled();
     });
 
     it('chama from("favoritos").delete e resolve', async () => {
