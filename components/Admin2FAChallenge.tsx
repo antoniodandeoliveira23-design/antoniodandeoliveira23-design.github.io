@@ -32,6 +32,7 @@ export default function Admin2FAChallenge({ onVerificado }: Props) {
   const [verificando, setVerificando] = useState(false);
   const [codigoEnviado, setCodigoEnviado] = useState(false);
   const [erro, setErro] = useState('');
+  const [codigoVisivel, setCodigoVisivel] = useState<string | null>(null);
   const isDemo = doisFA.modoDemo();
 
   const handleEnviarCodigo = async () => {
@@ -41,6 +42,8 @@ export default function Admin2FAChallenge({ onVerificado }: Props) {
     try {
       await doisFA.gerarCodigo(user.id);
       setCodigoEnviado(true);
+      // Exibe o código na tela enquanto envio por e-mail não está implementado
+      setCodigoVisivel(doisFA.obterCodigoAtual());
     } catch (e: any) {
       setErro('Erro ao gerar código. Tente novamente.');
     } finally {
@@ -86,6 +89,16 @@ export default function Admin2FAChallenge({ onVerificado }: Props) {
           <Ionicons name="information-circle-outline" size={16} color={CORES.laranja} />
           <Text style={styles.demoText}>
             Modo demo ativo — use o código: <Text style={styles.demoCode}>111111</Text>
+          </Text>
+        </View>
+      )}
+
+      {/* Código visível em produção enquanto envio de e-mail não está ativo */}
+      {!isDemo && codigoVisivel && (
+        <View style={styles.demoBox}>
+          <Ionicons name="key-outline" size={16} color={CORES.roxoClaro} />
+          <Text style={styles.demoText}>
+            Seu código de acesso: <Text style={styles.demoCode}>{codigoVisivel}</Text>
           </Text>
         </View>
       )}

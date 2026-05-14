@@ -45,16 +45,22 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     if (loading) return;
 
     const inAuthGroup = segments[0] === '(tabs)';
+    const inAdminGroup = segments[0] === 'admin';
     const publicRoutes = ['login', 'register', 'onboarding', 'index', 'permissao-localizacao'];
     const inPublicRoute = !segments[0] || publicRoutes.includes(segments[0] as string);
-    const inProtectedRoute = !inAuthGroup && !inPublicRoute;
+    const inProtectedRoute = !inAuthGroup && !inAdminGroup && !inPublicRoute;
 
     if (signed && inPublicRoute) {
-      router.replace('/(tabs)');
-    } else if (!signed && (inAuthGroup || inProtectedRoute)) {
+      // Admin vai direto para o painel administrativo
+      if (user?.tipo_conta === 'admin' || user?.tipo_conta === 'gov') {
+        router.replace('/admin/dashboard' as any);
+      } else {
+        router.replace('/(tabs)');
+      }
+    } else if (!signed && (inAuthGroup || inAdminGroup || inProtectedRoute)) {
       router.replace('/login');
     }
-  }, [signed, loading, segments]);
+  }, [signed, loading, segments, user?.tipo_conta]);
 
   if (loading) {
     return (
@@ -124,6 +130,7 @@ function RootLayoutContent() {
         <Stack.Screen name="editar-perfil" options={{ presentation: 'modal' }} />
         <Stack.Screen name="favoritos" options={{ presentation: 'modal' }} />
         <Stack.Screen name="minhas-inscricoes" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="admin/dashboard" />
         <Stack.Screen name="admin/moderacao" options={{ presentation: 'modal' }} />
         <Stack.Screen name="meus-eventos" options={{ presentation: 'modal' }} />
         <Stack.Screen name="cadastro-empresa" options={{ presentation: 'modal' }} />

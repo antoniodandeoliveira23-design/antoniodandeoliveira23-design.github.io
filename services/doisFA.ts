@@ -169,4 +169,15 @@ export const doisFA = {
   modoDemo(): boolean {
     return !supabaseConfigured;
   },
+
+  /**
+   * Retorna o código 2FA gerado nesta sessão para exibição na tela.
+   * Usado enquanto o envio por e-mail/SMS não está implementado.
+   * Retorna null se nenhum código foi gerado ou se já expirou.
+   */
+  obterCodigoAtual(): string | null {
+    if (!_codigoAtual || !_expiraEm) return null;
+    if (Date.now() > _expiraEm) return null;
+    return _codigoAtual;
+  },
 };

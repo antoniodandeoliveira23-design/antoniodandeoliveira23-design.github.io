@@ -517,7 +517,7 @@ function DashboardContent() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.replace('/(tabs)')}>
           <Ionicons name="arrow-back" size={24} color={CORES.branco} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
