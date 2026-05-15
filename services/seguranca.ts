@@ -292,12 +292,12 @@ export const sessionGuard = {
 
 export const CSP_POLICY = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",       // unsafe-inline necessário para Expo/Metro
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: https:",              // permite imagens externas via https
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.asaas.com",
+  "script-src 'self' 'unsafe-inline' https://unpkg.com",   // unsafe-inline p/ Expo/Metro; unpkg p/ Leaflet
+  "style-src 'self' 'unsafe-inline' https://unpkg.com",    // Leaflet CSS via CDN
+  "img-src 'self' data: https:",                            // permite imagens externas via https (tiles incluídos)
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.asaas.com https://*.cartocdn.com https://unpkg.com",
   "font-src 'self' data:",
-  "frame-ancestors 'none'",                   // previne clickjacking
+  "frame-ancestors 'none'",                                 // previne clickjacking
   "base-uri 'self'",
   "form-action 'self'",
 ].join('; ');
