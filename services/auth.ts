@@ -614,6 +614,28 @@ export const authService = {
     return mapSupabaseUser(session.user, profile);
   },
 
+  /**
+   * Versão rápida do getStoredUser — retorna o usuário só com dados da sessão
+   * local (localStorage), sem fazer requisição ao banco.
+   * Usado no carregamento inicial para liberar a tela sem esperar a rede.
+   */
+  async getSessionUser(): Promise<User | null> {
+    if (!supabaseConfigured) {
+      if (typeof window !== 'undefined' && sessionStorage.getItem('agoraDemoLoggedIn')) {
+        return createDemoUser();
+      }
+      return null;
+    }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return null;
+      // Monta usuário apenas com metadados da sessão (sem chamada ao banco)
+      return mapSupabaseUser(session.user, null);
+    } catch {
+      return null;
+    }
+  },
+
   async getProfile(userId: string) {
     if (!supabaseConfigured) return null;
     const { data } = await supabase

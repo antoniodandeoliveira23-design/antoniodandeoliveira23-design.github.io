@@ -87,9 +87,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function loadStoredUser() {
     try {
-      const storedUser = await authService.getStoredUser();
-      if (storedUser) {
-        setUser(storedUser);
+      // Passo 1: lê sessão do localStorage (síncrono/rápido) — libera a tela imediatamente
+      const sessionUser = await authService.getSessionUser();
+      if (sessionUser) {
+        setUser(sessionUser);
+        setLoading(false); // ← libera a tela AGORA, sem esperar o banco
+
+        // Passo 2: busca perfil completo em segundo plano (atualiza avatar, tipo_conta, etc.)
+        authService.getProfile(sessionUser.id)
+          .then((profile) => {
+            if (profile) {
+              setUser((prev) => prev ? { ...prev, ...profile, id: prev.id, email: prev.email } : prev);
+            }
+          })
+          .catch(() => { /* falha silenciosa — já temos dados básicos */ });
+        return;
       }
     } catch {
       // no stored user
