@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -18,7 +18,7 @@ import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEventos } from '@/contexts/EventosContext';
 import ModalDenuncia from '@/components/ModalDenuncia';
-const MapaInterativo = lazy(() => import('@/components/MapaInterativo'));
+import MapaInterativo from '@/components/MapaInterativo';
 import { produtosService } from '@/services/produtos';
 import { localizacaoService, type Coordenadas } from '@/services/localizacao';
 import { inscricoesService } from '@/services/inscricoes';
@@ -85,8 +85,12 @@ export default function HomeScreen() {
   // ── Filtro exclusivo mulheres ───────────────────────────
   const [filtroSomenteMultheres, setFiltroSomenteMulheres] = useState(false);
 
+  // Mapa só renderiza depois do mount no cliente (Leaflet acessa document)
+  const [mapaMontado, setMapaMontado] = useState(false);
+
   // Carrega eventos imediatamente ao montar (sem esperar GPS)
   useEffect(() => {
+    setMapaMontado(true);
     carregarEventos();
     inicializarGPS();
   }, []);
@@ -369,14 +373,18 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* Mapa interativo — carregado em segundo plano para não bloquear o render */}
+        {/* Mapa interativo — renderizado apenas após mount para evitar acesso ao document durante SSR */}
         <View style={styles.mapArea}>
-          <Suspense fallback={<View style={styles.mapPlaceholder}><ActivityIndicator color={CORES.roxo} /></View>}>
+          {mapaMontado ? (
             <MapaInterativo
               eventos={eventosFiltrados}
               onEventoPress={(evento) => abrirEvento(evento)}
             />
-          </Suspense>
+          ) : (
+            <View style={styles.mapPlaceholder}>
+              <ActivityIndicator color={CORES.roxo} />
+            </View>
+          )}
           <View style={styles.mapOverlay}>
             <Text style={styles.mapBadge}>{eventosFiltrados.length} eventos</Text>
           </View>
