@@ -86,12 +86,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   async function loadStoredUser() {
+    // Guard absoluto: se qualquer coisa travar, libera a tela em 6s
+    const safetyTimer = setTimeout(() => setLoading(false), 6000);
     try {
-      // Passo 1: lê sessão do localStorage (síncrono/rápido) — libera a tela imediatamente
+      // Passo 1: lê sessão (com timeout interno de 5s em getSessionUser)
       const sessionUser = await authService.getSessionUser();
       if (sessionUser) {
         setUser(sessionUser);
-        setLoading(false); // ← libera a tela AGORA, sem esperar o banco
+        setLoading(false);
+        clearTimeout(safetyTimer);
 
         // Passo 2: busca perfil completo em segundo plano (atualiza avatar, tipo_conta, etc.)
         authService.getProfile(sessionUser.id)
@@ -106,6 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // no stored user
     } finally {
+      clearTimeout(safetyTimer);
       setLoading(false);
     }
   }

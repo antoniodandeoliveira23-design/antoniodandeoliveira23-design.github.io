@@ -636,9 +636,12 @@ export const authService = {
       return null;
     }
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Timeout de 5s: evita travar quando o token expirou e o refresh HTTP demora
+      // (conexões lentas podem pendurar getSession() por minutos sem este guard)
+      const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000));
+      const sessionPromise = supabase.auth.getSession().then(({ data }) => data.session);
+      const session = await Promise.race([sessionPromise, timeoutPromise]);
       if (!session?.user) return null;
-      // Monta usuário apenas com metadados da sessão (sem chamada ao banco)
       return mapSupabaseUser(session.user, null);
     } catch {
       return null;
