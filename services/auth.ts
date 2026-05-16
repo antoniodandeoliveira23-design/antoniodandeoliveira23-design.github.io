@@ -437,6 +437,16 @@ export const authService = {
     const { data, error } = await supabase.auth.signUp({
       email: registerData.email,
       password: registerData.senha,
+      options: {
+        data: {
+          nome:       dadosSanitizados.nome,
+          sobrenome:  dadosSanitizados.sobrenome,
+          username:   dadosSanitizados.username,
+          tipo_conta: registerData.tipo_conta,
+          cnpj:       registerData.cnpj || null,
+          genero:     registerData.genero || null,
+        },
+      },
     });
 
     if (error) {
@@ -451,24 +461,23 @@ export const authService = {
     }
     if (!data.user) throw new Error('Erro ao criar conta');
 
-    // Criar perfil na tabela profiles
-    const profile = {
-      id: data.user.id,
-      nome: dadosSanitizados.nome,
-      sobrenome: dadosSanitizados.sobrenome,
-      username: dadosSanitizados.username,
-      tipo_conta: registerData.tipo_conta,
-      cnpj: registerData.cnpj || null,
-      genero: registerData.genero || null,
-      verificado: false,
-      criado_em: new Date().toISOString(),
+    // O trigger on_auth_user_created (004_functions.sql) cria o profile
+    // automaticamente a partir de raw_user_meta_data. Aguarda até 1s para
+    // garantir que o trigger tenha executado antes de ler o perfil.
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    const profile = await this.getProfile(data.user.id) ?? {
+      id:           data.user.id,
+      nome:         dadosSanitizados.nome,
+      sobrenome:    dadosSanitizados.sobrenome,
+      username:     dadosSanitizados.username,
+      tipo_conta:   registerData.tipo_conta,
+      cnpj:         registerData.cnpj || null,
+      genero:       registerData.genero || null,
+      verificado:   false,
+      criado_em:    new Date().toISOString(),
       atualizado_em: new Date().toISOString(),
     };
-
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert(profile);
-    if (profileError) throw new Error(profileError.message);
 
     await registrarAcesso('cadastro', data.user.id);
     await registrarAcao({
@@ -485,7 +494,7 @@ export const authService = {
       nome: dadosSanitizados.nome,
     });
 
-    return mapSupabaseUser(data.user, profile);
+    return mapSupabaseUser(data.user, profile as any);
   },
 
   /**

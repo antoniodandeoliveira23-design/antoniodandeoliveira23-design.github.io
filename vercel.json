@@ -42,7 +42,11 @@
         },
         {
           "key": "X-DNS-Prefetch-Control",
-          "value": "off"
+          "value": "on"
+        },
+        {
+          "key": "Link",
+          "value": "<https://spzsdjrjejlemuompfgf.supabase.co>; rel=preconnect, <https://unpkg.com>; rel=preconnect crossorigin, <https://a.basemaps.cartocdn.com>; rel=preconnect crossorigin, <https://b.basemaps.cartocdn.com>; rel=preconnect crossorigin"
         },
         {
           "key": "Cross-Origin-Opener-Policy",
@@ -56,6 +60,15 @@
     },
     {
       "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/_expo/(.*)",
       "headers": [
         {
           "key": "Cache-Control",

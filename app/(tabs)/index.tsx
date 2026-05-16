@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -18,7 +18,7 @@ import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEventos } from '@/contexts/EventosContext';
 import ModalDenuncia from '@/components/ModalDenuncia';
-import MapaInterativo from '@/components/MapaInterativo';
+const MapaInterativo = lazy(() => import('@/components/MapaInterativo'));
 import { produtosService } from '@/services/produtos';
 import { localizacaoService, type Coordenadas } from '@/services/localizacao';
 import { inscricoesService } from '@/services/inscricoes';
@@ -85,8 +85,9 @@ export default function HomeScreen() {
   // ── Filtro exclusivo mulheres ───────────────────────────
   const [filtroSomenteMultheres, setFiltroSomenteMulheres] = useState(false);
 
-  // Inicializa GPS uma vez ao montar
+  // Carrega eventos imediatamente ao montar (sem esperar GPS)
   useEffect(() => {
+    carregarEventos();
     inicializarGPS();
   }, []);
 
@@ -119,10 +120,11 @@ export default function HomeScreen() {
     if (pos) {
       posicaoRef.current = pos;
       setPosicaoAtual(pos);
-      const r = await buscarPorRaio(pos.lat, pos.lng, 10, { categoria: filtroCategoria });
-      setEventosGeo(r.dados);
+      // Atualiza a lista com eventos georreferenciados em background (sem bloquear UI)
+      buscarPorRaio(pos.lat, pos.lng, 10, { categoria: filtroCategoria })
+        .then((r) => setEventosGeo(r.dados))
+        .catch(() => { /* mantém lista já carregada */ });
     }
-    // Se pos === null, o useEffect de filtroCategoria já chamou carregarEventos()
   };
 
   const atualizarLocalizacao = async () => {
@@ -367,12 +369,14 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* Mapa interativo */}
+        {/* Mapa interativo — carregado em segundo plano para não bloquear o render */}
         <View style={styles.mapArea}>
-          <MapaInterativo
-            eventos={eventosFiltrados}
-            onEventoPress={(evento) => abrirEvento(evento)}
-          />
+          <Suspense fallback={<View style={styles.mapPlaceholder}><ActivityIndicator color={CORES.roxo} /></View>}>
+            <MapaInterativo
+              eventos={eventosFiltrados}
+              onEventoPress={(evento) => abrirEvento(evento)}
+            />
+          </Suspense>
           <View style={styles.mapOverlay}>
             <Text style={styles.mapBadge}>{eventosFiltrados.length} eventos</Text>
           </View>
@@ -631,6 +635,7 @@ const styles = StyleSheet.create({
 
   // Map
   mapArea: { marginHorizontal: SPACING.lg, height: 280, borderRadius: RADIUS.lg, marginBottom: SPACING.md, position: 'relative', overflow: 'hidden' },
+  mapPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.lg },
   mapOverlay: { position: 'absolute', top: SPACING.sm, left: SPACING.sm, zIndex: 1000 },
   mapBadge: { backgroundColor: CORES.backgroundCard + 'DD', color: CORES.branco, fontSize: FONT_SIZE.xs, fontWeight: '600', paddingHorizontal: SPACING.md, paddingVertical: 4, borderRadius: RADIUS.full, overflow: 'hidden' },
 

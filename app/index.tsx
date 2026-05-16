@@ -16,7 +16,7 @@ export default function SplashScreen() {
       } else {
         router.replace('/onboarding'); // Primeiro acesso → onboarding
       }
-    }, 1500);
+    }, 500);
     return () => clearTimeout(timer);
   }, [signed, loading]);
 

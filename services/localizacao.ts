@@ -69,7 +69,7 @@ export const localizacaoService = {
           resolve(coords);
         },
         () => resolve(null),
-        { timeout: 8000, maximumAge: CACHE_TTL_MS },
+        { timeout: 4000, maximumAge: CACHE_TTL_MS },
       );
     });
   },
