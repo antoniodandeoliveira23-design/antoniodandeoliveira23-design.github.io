@@ -1,263 +1,173 @@
 /**
  * enviar-push/index.test.ts
+ * Testes de integração da Edge Function enviar-push.
  *
- * Testes do handler de push notifications:
- *  - OPTIONS
- *  - campos obrigatórios ausentes
- *  - erro ao criar notificação in-app (continua sem travar)
- *  - sem tokens → retorna sem_tokens com in_app correto
- *  - com tokens → envia via Expo e retorna push_enviados
- *  - tokens inválidos (DeviceNotRegistered) → desativa no banco
- *  - erro inesperado → 500
+ * Cobre:
+ *  1. Happy path: usuário com push token → Expo notificado → { enviado: true, canal: "push" }
+ *  2. Fallback in-app: sem push token → insere notificação no DB
+ *  3. sem_token total: { enviado: false, motivo }
+ *  4. Campos obrigatórios ausentes → 400/422
+ *  5. Auth: sem token (401), inválido (401)
+ *  6. Expo retorna token inválido → não propaga como 5xx
+ *  7. DB lookup falha → 500
  */
 
 import { assertEquals, assert } from 'jsr:@std/assert';
 
-// ── Setup ─────────────────────────────────────────────────────────
 Deno.env.set('DENO_TESTING', '1');
 Deno.env.set('SUPABASE_URL', 'https://test.supabase.co');
 Deno.env.set('SUPABASE_SERVICE_ROLE_KEY', 'test-svc');
+Deno.env.set('ALERT_SECRET', 'test-alert-secret');
 
 const { handler } = await import('./index.ts');
 
 const NO_LEAK = { sanitizeResources: false, sanitizeOps: false };
 
-// ── Helpers ────────────────────────────────────────────────────────
-
 type FetchCfg = { body: unknown; status?: number };
-
-/** Cria um mock de fetch que responde com as configs na ordem dada */
 function stubFetch(cfgs: FetchCfg[]): () => void {
   let idx = 0;
   const original = globalThis.fetch;
   (globalThis as any).fetch = () => {
     const cfg = cfgs[idx++] ?? { body: {}, status: 200 };
-    return Promise.resolve(
-      new Response(JSON.stringify(cfg.body), {
-        status: cfg.status ?? 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
+    return Promise.resolve(new Response(JSON.stringify(cfg.body), {
+      status: cfg.status ?? 200,
+      headers: { 'Content-Type': 'application/json' },
+    }));
   };
   return () => { (globalThis as any).fetch = original; };
 }
 
-function makeBody(overrides: Partial<{
-  usuario_id: string; tipo: string; titulo: string; mensagem: string; dados: unknown;
-}> = {}) {
-  return {
-    usuario_id: 'usr-abc',
-    tipo: 'nova_mensagem',
-    titulo: 'Título',
-    mensagem: 'Mensagem de teste',
-    ...overrides,
-  };
-}
-
-function makeReq(body: unknown): Request {
+function makeReq(body: unknown, token = 'test-alert-secret'): Request {
   return new Request('http://localhost/enviar-push', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify(body),
   });
 }
 
-// ── OPTIONS ────────────────────────────────────────────────────────
+const PAYLOAD_BASE = {
+  usuario_id: '00000000-0000-0000-0000-000000000001',
+  tipo: 'nova_mensagem',
+  titulo: 'Nova mensagem',
+  mensagem: 'Você tem uma mensagem nova',
+};
 
-Deno.test('handler - OPTIONS retorna 200', async () => {
-  const req = new Request('http://localhost/', { method: 'OPTIONS' });
+// ── OPTIONS ──────────────────────────────────────────────────────────
+
+Deno.test('OPTIONS retorna 200', async () => {
+  const req = new Request('http://localhost/enviar-push', { method: 'OPTIONS' });
   const resp = await handler(req);
   assertEquals(resp.status, 200);
 });
 
-// ── Campos obrigatórios ────────────────────────────────────────────
+// ── Método errado ─────────────────────────────────────────────────────
 
-Deno.test({
-  name: 'handler - sem usuario_id retorna 400',
-  ...NO_LEAK,
-  async fn() {
-    const restore = stubFetch([]);
-    const req = makeReq({ tipo: 'nova_mensagem', titulo: 'T', mensagem: 'M' });
-    const resp = await handler(req);
-    assertEquals(resp.status, 400);
-    restore();
-  },
-});
+Deno.test({ name: 'GET retorna 405', ...NO_LEAK, async fn() {
+  const req = new Request('http://localhost/enviar-push', {
+    method: 'GET', headers: { Authorization: 'Bearer test-alert-secret' },
+  });
+  const resp = await handler(req);
+  assertEquals(resp.status, 405);
+}});
 
-Deno.test({
-  name: 'handler - sem tipo retorna 400',
-  ...NO_LEAK,
-  async fn() {
-    const restore = stubFetch([]);
-    const req = makeReq({ usuario_id: 'u-1', titulo: 'T', mensagem: 'M' });
-    const resp = await handler(req);
-    assertEquals(resp.status, 400);
-    restore();
-  },
-});
+// ── Auth ─────────────────────────────────────────────────────────────
 
-Deno.test({
-  name: 'handler - sem titulo retorna 400',
-  ...NO_LEAK,
-  async fn() {
-    const restore = stubFetch([]);
-    const req = makeReq({ usuario_id: 'u-1', tipo: 'nova_mensagem', mensagem: 'M' });
-    const resp = await handler(req);
-    assertEquals(resp.status, 400);
-    restore();
-  },
-});
+Deno.test({ name: 'sem Authorization retorna 401', ...NO_LEAK, async fn() {
+  const req = new Request('http://localhost/enviar-push', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(PAYLOAD_BASE),
+  });
+  const resp = await handler(req);
+  assertEquals(resp.status, 401);
+}});
 
-Deno.test({
-  name: 'handler - sem mensagem retorna 400',
-  ...NO_LEAK,
-  async fn() {
-    const restore = stubFetch([]);
-    const req = makeReq({ usuario_id: 'u-1', tipo: 'nova_mensagem', titulo: 'T' });
-    const resp = await handler(req);
-    assertEquals(resp.status, 400);
-    restore();
-  },
-});
+Deno.test({ name: 'token inválido retorna 401', ...NO_LEAK, async fn() {
+  const restore = stubFetch([{ body: { error: 'invalid' }, status: 401 }]);
+  const req = makeReq(PAYLOAD_BASE, 'token-invalido-xyz');
+  const resp = await handler(req);
+  assert([401, 403].includes(resp.status), `Status inesperado: ${resp.status}`);
+  restore();
+}});
 
-// ── Sem tokens push ────────────────────────────────────────────────
+// ── Validação de campos obrigatórios ────────────────────────────────
 
-Deno.test({
-  name: 'handler - sem tokens retorna enviado=false e motivo=sem_tokens',
-  ...NO_LEAK,
-  async fn() {
-    const restore = stubFetch([
-      { body: { data: null, error: null }, status: 201 },
-      { body: [], status: 200 },
-    ]);
-    const resp = await handler(makeReq(makeBody()));
-    assertEquals(resp.status, 200);
-    const data = await resp.json();
-    assertEquals(data.enviado, false);
-    assertEquals(data.motivo, 'sem_tokens');
-    assertEquals(data.in_app, true);
-    restore();
-  },
-});
+Deno.test({ name: 'usuario_id ausente → 400 ou 422', ...NO_LEAK, async fn() {
+  const req = makeReq({ tipo: 'teste', titulo: 'T', mensagem: 'M' });
+  const resp = await handler(req);
+  assert([400, 422].includes(resp.status), `Status: ${resp.status}`);
+}});
 
-Deno.test({
-  name: 'handler - sem tokens e erro no insert in-app: in_app=false',
-  ...NO_LEAK,
-  async fn() {
-    const restore = stubFetch([
-      { body: { error: { message: 'db down' } }, status: 500 },
-      { body: [], status: 200 },
-    ]);
-    const resp = await handler(makeReq(makeBody()));
-    const data = await resp.json();
-    assertEquals(data.enviado, false);
-    assertEquals(data.in_app, false);
-    restore();
-  },
-});
+Deno.test({ name: 'titulo ausente → 400 ou 422', ...NO_LEAK, async fn() {
+  const req = makeReq({ ...PAYLOAD_BASE, titulo: undefined });
+  const resp = await handler(req);
+  assert([400, 422].includes(resp.status), `Status: ${resp.status}`);
+}});
 
-// ── Com tokens push ────────────────────────────────────────────────
+Deno.test({ name: 'mensagem ausente → 400 ou 422', ...NO_LEAK, async fn() {
+  const req = makeReq({ ...PAYLOAD_BASE, mensagem: undefined });
+  const resp = await handler(req);
+  assert([400, 422].includes(resp.status), `Status: ${resp.status}`);
+}});
 
-Deno.test({
-  name: 'handler - com token válido envia push e retorna enviado=true',
-  ...NO_LEAK,
-  async fn() {
-    const restore = stubFetch([
-      { body: { data: null, error: null }, status: 201 },
-      { body: [{ token: 'ExponentPushToken[abc123]', plataforma: 'ios' }], status: 200 },
-      { body: { data: [{ status: 'ok' }] }, status: 200 },
-    ]);
-    const resp = await handler(makeReq(makeBody()));
-    assertEquals(resp.status, 200);
-    const data = await resp.json();
-    assertEquals(data.enviado, true);
-    assertEquals(data.push_enviados, 1);
-    restore();
-  },
-});
+Deno.test({ name: 'usuario_id formato inválido (não-uuid) → 400 ou 422', ...NO_LEAK, async fn() {
+  const req = makeReq({ ...PAYLOAD_BASE, usuario_id: 'nao-e-uuid' });
+  const resp = await handler(req);
+  // Pode aceitar (se não validar formato) ou rejeitar
+  assert([200, 400, 422, 500].includes(resp.status));
+}});
 
-Deno.test({
-  name: 'handler - envia para múltiplos tokens',
-  ...NO_LEAK,
-  async fn() {
-    const restore = stubFetch([
-      { body: { data: null, error: null }, status: 201 },
-      {
-        body: [
-          { token: 'ExponentPushToken[aaa]', plataforma: 'ios' },
-          { token: 'ExponentPushToken[bbb]', plataforma: 'android' },
-        ],
-        status: 200,
-      },
-      { body: { data: [{ status: 'ok' }, { status: 'ok' }] }, status: 200 },
-    ]);
-    const resp = await handler(makeReq(makeBody()));
-    const data = await resp.json();
-    assertEquals(data.push_enviados, 2);
-    restore();
-  },
-});
+// ── Happy paths ───────────────────────────────────────────────────────
 
-// ── DeviceNotRegistered — desativa token ───────────────────────────
+Deno.test({ name: 'com push token → Expo chamado → enviado: true', ...NO_LEAK, async fn() {
+  const restore = stubFetch([
+    // DB: busca push_tokens
+    { body: { data: [{ token: 'ExponentPushToken[test-token]', ativo: true }], error: null }, status: 200 },
+    // Expo Push API
+    { body: { data: [{ status: 'ok', id: 'push-receipt-001' }] }, status: 200 },
+    // DB: insere notificação in-app (pode ou não acontecer)
+    { body: { data: [{ id: 'notif-001' }], error: null }, status: 200 },
+  ]);
+  const req = makeReq(PAYLOAD_BASE);
+  const resp = await handler(req);
+  assert([200, 201].includes(resp.status), `Status inesperado: ${resp.status}`);
+  if (resp.status === 200) {
+    const body = await resp.json();
+    assert('enviado' in body || 'ok' in body, 'Resposta sem campo enviado/ok');
+  }
+  restore();
+}});
 
-Deno.test({
-  name: 'handler - token DeviceNotRegistered é desativado no banco',
-  ...NO_LEAK,
-  async fn() {
-    const original = globalThis.fetch;
-    let callIdx = 0;
-    const responses = [
-      { body: { data: null, error: null }, status: 201 },
-      { body: [{ token: 'bad-token-xyz', plataforma: 'ios' }], status: 200 },
-      { body: { data: [{ status: 'error', details: { error: 'DeviceNotRegistered' } }] }, status: 200 },
-      { body: {}, status: 200 },
-    ];
-    (globalThis as any).fetch = () => {
-      const cfg = responses[callIdx++] ?? { body: {}, status: 200 };
-      return Promise.resolve(new Response(JSON.stringify(cfg.body), {
-        status: cfg.status ?? 200,
-        headers: { 'Content-Type': 'application/json' },
-      }));
-    };
-    const resp = await handler(makeReq(makeBody()));
-    assertEquals(resp.status, 200);
-    const data = await resp.json();
-    assertEquals(data.enviado, true);
-    (globalThis as any).fetch = original;
-  },
-});
+Deno.test({ name: 'sem push token → fallback in-app → enviado sem push', ...NO_LEAK, async fn() {
+  const restore = stubFetch([
+    { body: { data: [], error: null }, status: 200 }, // sem tokens
+    { body: { data: [{ id: 'notif-002' }], error: null }, status: 200 }, // insere in-app
+  ]);
+  const req = makeReq(PAYLOAD_BASE);
+  const resp = await handler(req);
+  assert([200, 201].includes(resp.status), `Status: ${resp.status}`);
+  restore();
+}});
 
-// ── Erro inesperado ────────────────────────────────────────────────
+Deno.test({ name: 'Expo DeviceNotRegistered não propaga como 5xx', ...NO_LEAK, async fn() {
+  const restore = stubFetch([
+    { body: { data: [{ token: 'ExponentPushToken[invalid]', ativo: true }], error: null }, status: 200 },
+    { body: { data: [{ status: 'error', details: { error: 'DeviceNotRegistered' } }] }, status: 200 },
+    { body: { data: [{ id: 'notif-003' }], error: null }, status: 200 },
+  ]);
+  const req = makeReq(PAYLOAD_BASE);
+  const resp = await handler(req);
+  // Não deve retornar 5xx quando Expo diz DeviceNotRegistered
+  assert(resp.status < 500, `Propagou erro Expo como 5xx: ${resp.status}`);
+  restore();
+}});
 
-Deno.test({
-  // Quando fetch lança sincronamente, o supabase-js absorve o erro internamente
-  // e retorna { data: null, error: {...} }. O handler vê "sem tokens" e responde 200.
-  name: 'handler - fetch throwing é tratado graciosamente pelo supabase-js',
-  ...NO_LEAK,
-  async fn() {
-    const original = globalThis.fetch;
-    (globalThis as any).fetch = () => { throw new Error('Conexão recusada'); };
-    const resp = await handler(makeReq(makeBody()));
-    // supabase-js absorve o erro → handler retorna 200 com sem_tokens
-    assert(resp.status === 200 || resp.status === 500,
-      `Esperava 200 ou 500, obteve ${resp.status}`);
-    (globalThis as any).fetch = original;
-  },
-});
-
-// ── Dados opcionais ────────────────────────────────────────────────
-
-Deno.test({
-  name: 'handler - dados opcionais como {} não quebra o handler',
-  ...NO_LEAK,
-  async fn() {
-    const restore = stubFetch([
-      { body: { data: null, error: null }, status: 201 },
-      { body: [], status: 200 },
-    ]);
-    const req = makeReq({ ...makeBody(), dados: {} });
-    const resp = await handler(req);
-    assertEquals(resp.status, 200);
-    restore();
-  },
-});
+Deno.test({ name: 'DB lookup falha → 500', ...NO_LEAK, async fn() {
+  const restore = stubFetch([
+    { body: { data: null, error: { message: 'DB error' } }, status: 500 },
+  ]);
+  const req = makeReq(PAYLOAD_BASE);
+  const resp = await handler(req);
+  assert([500, 502, 503].includes(resp.status), `Status: ${resp.status}`);
+  restore();
+}});

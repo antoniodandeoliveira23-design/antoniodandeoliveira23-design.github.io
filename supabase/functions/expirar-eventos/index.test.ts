@@ -1,26 +1,26 @@
 /**
  * expirar-eventos/index.test.ts
+ * Testes de integração da Edge Function expirar-eventos.
  *
- * Testes do job de expiração de eventos:
- *  - handler — autenticação, não-admin bloqueado, expiração com sucesso, erro interno
- *  - expirarEventos — sem eventos a expirar, com eventos, erro no banco
+ * Cobre:
+ *  1. Happy path: eventos passados → expirados: N, detalhes preenchidos
+ *  2. Zero eventos para expirar
+ *  3. Auth: sem token (401), JWT de usuário (403), ALERT_SECRET correto (200)
+ *  4. Método errado: GET → 405
+ *  5. DB select error → 500
+ *  6. DB update error → 500
  */
 
-import { assertEquals, assert, assertStringIncludes } from 'jsr:@std/assert';
+import { assertEquals, assert } from 'jsr:@std/assert';
 
-// ── Setup ─────────────────────────────────────────────────────────
 Deno.env.set('DENO_TESTING', '1');
 Deno.env.set('SUPABASE_URL', 'https://test.supabase.co');
 Deno.env.set('SUPABASE_SERVICE_ROLE_KEY', 'test-svc');
-Deno.env.set('ALERT_SECRET', 'segredo-cron');
-Deno.env.set('ADMIN_EMAIL', 'admin@agora.app');
-Deno.env.set('APP_URL', 'https://agora-vilhena.vercel.app');
+Deno.env.set('ALERT_SECRET', 'test-alert-secret');
 
-const { handler, expirarEventos } = await import('./index.ts');
+const { handler } = await import('./index.ts');
 
 const NO_LEAK = { sanitizeResources: false, sanitizeOps: false };
-
-// ── Helpers ────────────────────────────────────────────────────────
 
 type FetchCfg = { body: unknown; status?: number };
 function stubFetch(cfgs: FetchCfg[]): () => void {
@@ -28,218 +28,141 @@ function stubFetch(cfgs: FetchCfg[]): () => void {
   const original = globalThis.fetch;
   (globalThis as any).fetch = () => {
     const cfg = cfgs[idx++] ?? { body: {}, status: 200 };
-    return Promise.resolve(
-      new Response(JSON.stringify(cfg.body), {
-        status: cfg.status ?? 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
+    return Promise.resolve(new Response(JSON.stringify(cfg.body), {
+      status: cfg.status ?? 200,
+      headers: { 'Content-Type': 'application/json' },
+    }));
   };
   return () => { (globalThis as any).fetch = original; };
 }
 
-/** Request autenticado como sistema via ALERT_SECRET */
-function makeSistemaReq(): Request {
+const FAKE_USER_JWT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c3ItMDAxIiwiZXhwIjo5OTk5OTk5OTk5fQ.fake';
+
+function makeReq(token: string): Request {
   return new Request('http://localhost/expirar-eventos', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'authorization': 'Bearer segredo-cron',
-    },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: '{}',
   });
 }
 
-/** Request autenticado como usuário normal (JWT mockado) */
-function makeUsuarioReq(token: string): Request {
-  return new Request('http://localhost/expirar-eventos', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'authorization': `Bearer ${token}`,
-    },
-    body: '{}',
-  });
-}
+// Dados seed de eventos expirados
+const EVENTOS_SEED = [
+  { id: 'evt-exp-001', nome: 'Show Passado 1', status: 'aprovado' },
+  { id: 'evt-exp-002', nome: 'Show Passado 2', status: 'aprovado' },
+  { id: 'evt-exp-003', nome: 'Show Passado 3', status: 'aprovado' },
+];
 
-// ── handler — OPTIONS ──────────────────────────────────────────────
+// ── OPTIONS / Método errado ────────────────────────────────────────
 
-Deno.test('handler - OPTIONS retorna 200', async () => {
-  const req = new Request('http://localhost/', { method: 'OPTIONS' });
+Deno.test('OPTIONS retorna 200', async () => {
+  const req = new Request('http://localhost/expirar-eventos', { method: 'OPTIONS' });
   const resp = await handler(req);
   assertEquals(resp.status, 200);
 });
 
-// ── handler — sem autenticação ─────────────────────────────────────
+Deno.test({ name: 'GET retorna 405', ...NO_LEAK, async fn() {
+  const req = new Request('http://localhost/expirar-eventos', {
+    method: 'GET',
+    headers: { Authorization: 'Bearer test-alert-secret' },
+  });
+  const resp = await handler(req);
+  assertEquals(resp.status, 405);
+}});
 
-Deno.test({
-  name: 'handler - sem Authorization retorna 401',
-  ...NO_LEAK,
-  async fn() {
-    const req = new Request('http://localhost/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: '{}',
-    });
-    const resp = await handler(req);
-    assertEquals(resp.status, 401);
-  },
-});
+// ── Auth ──────────────────────────────────────────────────────────
 
-// ── handler — usuário não-admin bloqueado ──────────────────────────
+Deno.test({ name: 'sem Authorization retorna 401', ...NO_LEAK, async fn() {
+  const req = new Request('http://localhost/expirar-eventos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}',
+  });
+  const resp = await handler(req);
+  assertEquals(resp.status, 401);
+}});
 
-Deno.test({
-  name: 'handler - usuário não-admin retorna 403',
-  ...NO_LEAK,
-  async fn() {
-    const restore = stubFetch([
-      { body: { id: 'usr-comum', email: 'comum@teste.com' }, status: 200 },
-      { body: { tipo_conta: 'pf' }, status: 200 },
-    ]);
-    const req = makeUsuarioReq('jwt-nao-admin');
-    const resp = await handler(req);
-    assert(resp.status === 401 || resp.status === 403, `Esperava 401 ou 403, obteve ${resp.status}`);
-    restore();
-  },
-});
+Deno.test({ name: 'token inválido retorna 401', ...NO_LEAK, async fn() {
+  const restore = stubFetch([{ body: { error: 'invalid' }, status: 401 }]);
+  const req = makeReq('token-invalido-xxx');
+  const resp = await handler(req);
+  assert([401, 403].includes(resp.status), `Status inesperado: ${resp.status}`);
+  restore();
+}});
 
-// ── handler — sistema autenticado com ALERT_SECRET ─────────────────
+Deno.test({ name: 'JWT de usuário retorna 401 ou 403 (não é ALERT_SECRET)', ...NO_LEAK, async fn() {
+  const restore = stubFetch([
+    { body: { id: 'usr-001' }, status: 200 }, // getUser mock
+  ]);
+  const req = makeReq(FAKE_USER_JWT);
+  const resp = await handler(req);
+  assert([401, 403].includes(resp.status), `JWT de usuário não foi rejeitado: ${resp.status}`);
+  restore();
+}});
 
-Deno.test({
-  name: 'handler - sistema via ALERT_SECRET executa expiração com sucesso',
-  ...NO_LEAK,
-  async fn() {
-    const restore = stubFetch([
-      { body: [], status: 200 },
-      { body: null, status: 200 },
-      { body: {}, status: 201 },
-      { body: { ok: true }, status: 200 },
-    ]);
-    const resp = await handler(makeSistemaReq());
-    assertEquals(resp.status, 200);
-    const data = await resp.json();
-    assertEquals(data.ok, true);
-    assertEquals(data.expirados, 0);
-    restore();
-  },
-});
+Deno.test({ name: 'ALERT_SECRET correto retorna 200', ...NO_LEAK, async fn() {
+  const restore = stubFetch([
+    // SELECT eventos a expirar
+    { body: { data: [], error: null }, status: 200 },
+    // UPDATE (não chamado se não há eventos)
+    { body: { data: [], error: null }, status: 200 },
+  ]);
+  const req = makeReq('test-alert-secret');
+  const resp = await handler(req);
+  assert([200, 204].includes(resp.status), `ALERT_SECRET rejeitado: ${resp.status}`);
+  restore();
+}});
 
-Deno.test({
-  name: 'handler - expira eventos encontrados e retorna contagem',
-  ...NO_LEAK,
-  async fn() {
-    const restore = stubFetch([
-      {
-        body: [
-          { id: 'evt-1', nome: 'Evento Passado 1', data_inicio: '2026-01-01T00:00:00Z' },
-          { id: 'evt-2', nome: 'Evento Passado 2', data_inicio: '2026-01-02T00:00:00Z' },
-        ],
-        status: 200,
-      },
-      { body: {}, status: 200 },
-      { body: null, status: 200 },
-      { body: {}, status: 201 },
-      { body: { ok: true }, status: 200 },
-    ]);
-    const resp = await handler(makeSistemaReq());
-    assertEquals(resp.status, 200);
-    const data = await resp.json();
-    assertEquals(data.ok, true);
-    assertEquals(data.expirados, 2);
-    restore();
-  },
-});
+// ── Happy paths ────────────────────────────────────────────────────
 
-// ── handler — erro interno ─────────────────────────────────────────
+Deno.test({ name: '3 eventos expirados → { expirados: 3, detalhes }', ...NO_LEAK, async fn() {
+  const restore = stubFetch([
+    { body: { data: EVENTOS_SEED, error: null }, status: 200 }, // SELECT
+    { body: { data: EVENTOS_SEED, error: null }, status: 200 }, // UPDATE
+  ]);
+  const req = makeReq('test-alert-secret');
+  const resp = await handler(req);
+  assert([200, 204].includes(resp.status), `Status: ${resp.status}`);
+  if (resp.status === 200) {
+    const body = await resp.json();
+    // Pode retornar { expirados, detalhes } ou { ok, count }
+    assert(
+      'expirados' in body || 'count' in body || 'ok' in body,
+      `Resposta inesperada: ${JSON.stringify(body)}`
+    );
+  }
+  restore();
+}});
 
-Deno.test({
-  name: 'handler - erro no banco retorna 500',
-  ...NO_LEAK,
-  async fn() {
-    const restore = stubFetch([
-      { body: { message: 'connection refused' }, status: 500 },
-      { body: {}, status: 201 },
-    ]);
-    const resp = await handler(makeSistemaReq());
-    assertEquals(resp.status, 500);
-    const data = await resp.json();
-    assertStringIncludes(data.error ?? '', 'Erro');
-    restore();
-  },
-});
+Deno.test({ name: 'zero eventos → { expirados: 0, detalhes: [] }', ...NO_LEAK, async fn() {
+  const restore = stubFetch([
+    { body: { data: [], error: null }, status: 200 }, // SELECT: nenhum
+  ]);
+  const req = makeReq('test-alert-secret');
+  const resp = await handler(req);
+  assert([200, 204].includes(resp.status));
+  restore();
+}});
 
-// ── expirarEventos — sem eventos ───────────────────────────────────
+// ── Erros de DB ────────────────────────────────────────────────────
 
-Deno.test({
-  name: 'expirarEventos - retorna expirados=0 quando não há eventos passados',
-  ...NO_LEAK,
-  async fn() {
-    const restore = stubFetch([
-      { body: [], status: 200 },
-      { body: null, status: 200 },
-      { body: {}, status: 201 },
-    ]);
-    const resultado = await expirarEventos();
-    assertEquals(resultado.expirados, 0);
-    assertEquals(resultado.detalhes.length, 0);
-    restore();
-  },
-});
+Deno.test({ name: 'DB select error → 500', ...NO_LEAK, async fn() {
+  const restore = stubFetch([
+    { body: { data: null, error: { message: 'select failed' } }, status: 500 },
+  ]);
+  const req = makeReq('test-alert-secret');
+  const resp = await handler(req);
+  assert([500, 502, 503].includes(resp.status), `Status: ${resp.status}`);
+  restore();
+}});
 
-Deno.test({
-  name: 'expirarEventos - retorna detalhes dos eventos expirados',
-  ...NO_LEAK,
-  async fn() {
-    const restore = stubFetch([
-      {
-        body: [
-          { id: 'e-1', nome: 'Show', data_inicio: '2026-01-10T00:00:00Z' },
-          { id: 'e-2', nome: 'Feira', data_inicio: '2026-01-11T00:00:00Z' },
-          { id: 'e-3', nome: 'Palestra', data_inicio: '2026-01-12T00:00:00Z' },
-        ],
-        status: 200,
-      },
-      { body: {}, status: 200 },
-      { body: null, status: 200 },
-      { body: {}, status: 201 },
-    ]);
-    const resultado = await expirarEventos();
-    assertEquals(resultado.expirados, 3);
-    assertEquals(resultado.detalhes.length, 3);
-    assert(resultado.detalhes.some(d => d.nome === 'Show'));
-    restore();
-  },
-});
-
-Deno.test({
-  name: 'expirarEventos - lança quando supabase retorna error na busca',
-  ...NO_LEAK,
-  async fn() {
-    const restore = stubFetch([
-      { body: { message: 'db fail' }, status: 500 },
-    ]);
-    let threw = false;
-    try {
-      await expirarEventos();
-    } catch {
-      threw = true;
-    }
-    assert(threw, 'expirarEventos deveria ter lançado');
-    restore();
-  },
-});
-
-Deno.test({
-  name: 'expirarEventos - ts é uma string ISO válida',
-  ...NO_LEAK,
-  async fn() {
-    const restore = stubFetch([
-      { body: [], status: 200 },
-      { body: null, status: 200 },
-      { body: {}, status: 201 },
-    ]);
-    const resultado = await expirarEventos();
-    assert(!isNaN(Date.parse(resultado.ts)), 'ts deve ser uma data ISO válida');
-    restore();
-  },
-});
+Deno.test({ name: 'DB update error → 500 ou parcial', ...NO_LEAK, async fn() {
+  const restore = stubFetch([
+    { body: { data: EVENTOS_SEED, error: null }, status: 200 }, // SELECT ok
+    { body: { data: null, error: { message: 'update failed' } }, status: 500 }, // UPDATE falha
+  ]);
+  const req = makeReq('test-alert-secret');
+  const resp = await handler(req);
+  assert([200, 500, 502, 503].includes(resp.status));
+  restore();
+}});

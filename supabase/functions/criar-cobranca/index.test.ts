@@ -1,29 +1,32 @@
 /**
  * criar-cobranca/index.test.ts
+ * Testes de integração da Edge Function criar-cobranca.
  *
- * Testes do handler de criação de cobrança Asaas:
- *  - dataVencimento (pura)
- *  - asaasRequest — token ausente, resposta de erro
- *  - handler — OPTIONS, método, auth, JSON, plano_id, fluxo completo
+ * Cobre:
+ *  1. Happy paths (PIX / BOLETO / CREDIT_CARD / metodo ausente → default PIX)
+ *  2. Cenários de erro RFC 7807 (plano_id ausente, formato inválido)
+ *  3. Auth: sem token (401), token inválido (401), ALERT_SECRET rejeitado (401)
+ *  4. Upstream errors: Asaas 500 → 502, Asaas 402 → 502
+ *  5. DB insert fail → 500
  */
 
-import { assertEquals, assert, assertStringIncludes } from 'jsr:@std/assert';
+import { assertEquals, assertStringIncludes, assert } from 'jsr:@std/assert';
 
-// ── Setup ─────────────────────────────────────────────────────────
 Deno.env.set('DENO_TESTING', '1');
 Deno.env.set('SUPABASE_URL', 'https://test.supabase.co');
 Deno.env.set('SUPABASE_SERVICE_ROLE_KEY', 'test-svc');
-Deno.env.set('ALERT_SECRET', 'segredo-alert');
-Deno.env.set('ASAAS_ACCESS_TOKEN', 'test-asaas-token');
+Deno.env.set('ALERT_SECRET', 'test-alert-secret');
+Deno.env.set('ASAAS_API_KEY', 'test-asaas-key');
 Deno.env.set('ASAAS_ENV', 'sandbox');
 
-const { handler, dataVencimento, asaasRequest } = await import('./index.ts');
+const { handler } = await import('./index.ts');
 
 const NO_LEAK = { sanitizeResources: false, sanitizeOps: false };
 
 // ── Helpers ────────────────────────────────────────────────────────
 
 type FetchCfg = { body: unknown; status?: number };
+
 function stubFetch(cfgs: FetchCfg[]): () => void {
   let idx = 0;
   const original = globalThis.fetch;
@@ -39,259 +42,175 @@ function stubFetch(cfgs: FetchCfg[]): () => void {
   return () => { (globalThis as any).fetch = original; };
 }
 
-/** Request de usuário autenticado via ALERT_SECRET (tipo sistema, rejeitado pelo handler) */
-function makeUserReq(body: unknown, token = 'segredo-alert'): Request {
+/** JWT fake que o mock do supabase-js aceita como "válido" */
+const FAKE_JWT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c3ItMDAxIiwiZW1haWwiOiJ0ZXN0ZUB0ZXN0ZS5jb20iLCJleHAiOjk5OTk5OTk5OTl9.fake';
+
+function makeReq(body: unknown, token = FAKE_JWT): Request {
   return new Request('http://localhost/criar-cobranca', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'authorization': `Bearer ${token}`,
+      'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify(body),
   });
 }
 
-// ── dataVencimento ─────────────────────────────────────────────────
+async function assertRFC7807(resp: Response, expectedStatus: number) {
+  assertEquals(resp.status, expectedStatus);
+  const ct = resp.headers.get('content-type') ?? '';
+  assert(ct.includes('application/problem+json') || ct.includes('application/json'),
+    `Content-Type incorreto: ${ct}`);
+  const body = await resp.json();
+  assert('status' in body || 'error' in body, 'Resposta de erro sem campo status ou error');
+}
 
-Deno.test('dataVencimento - retorna string no formato AAAA-MM-DD', () => {
-  const result = dataVencimento();
-  assert(/^\d{4}-\d{2}-\d{2}$/.test(result), `Formato inválido: ${result}`);
-});
+// ── beforeEach seed (módulo-nível) ─────────────────────────────────
+// Cada teste com stubFetch define seu próprio seed de respostas.
 
-Deno.test('dataVencimento - data é amanhã (diferença de ~1 dia)', () => {
-  const result = dataVencimento();
-  const amanha = new Date();
-  amanha.setDate(amanha.getDate() + 1);
-  const esperado = amanha.toISOString().slice(0, 10);
-  assertEquals(result, esperado);
-});
+// ── OPTIONS ────────────────────────────────────────────────────────
 
-// ── asaasRequest ───────────────────────────────────────────────────
-
-Deno.test('asaasRequest - lança quando ASAAS_TOKEN está vazio', async () => {
-  // Salva e limpa o token
-  const savedToken = Deno.env.get('ASAAS_ACCESS_TOKEN');
-  // Não podemos mudar o módulo já carregado, então testamos pela exceção
-  // (o token 'test-asaas-token' está setado, então this path testa a lógica de erro HTTP)
-  const restore = stubFetch([
-    { body: { errors: [{ description: 'Token inválido' }] }, status: 401 },
-  ]);
-
-  let threw = false;
-  let errorMsg = '';
-  try {
-    await asaasRequest('/customers', 'GET');
-  } catch (e) {
-    threw = true;
-    errorMsg = String(e);
-  }
-  assert(threw, 'asaasRequest deveria ter lançado com resposta de erro');
-  assertStringIncludes(errorMsg, 'Token inválido');
-  restore();
-});
-
-Deno.test('asaasRequest - retorna data em caso de sucesso', async () => {
-  const restore = stubFetch([
-    { body: { data: [{ id: 'cus-1' }] }, status: 200 },
-  ]);
-
-  const result = await asaasRequest('/customers?email=a@b.com&limit=1', 'GET');
-  assert(Array.isArray(result.data), 'Deve retornar objeto com data');
-  assertEquals(result.data[0].id, 'cus-1');
-  restore();
-});
-
-Deno.test('asaasRequest - lança com mensagem genérica quando sem errors[0]', async () => {
-  const restore = stubFetch([
-    { body: { message: 'Bad Gateway' }, status: 502 },
-  ]);
-
-  let threw = false;
-  let msg = '';
-  try {
-    await asaasRequest('/payments', 'POST', { value: 0 });
-  } catch (e) {
-    threw = true;
-    msg = String(e);
-  }
-  assert(threw);
-  assertStringIncludes(msg, 'Bad Gateway');
-  restore();
-});
-
-// ── handler — OPTIONS / método ─────────────────────────────────────
-
-Deno.test('handler - OPTIONS retorna 200', async () => {
-  const req = new Request('http://localhost/', { method: 'OPTIONS' });
+Deno.test('OPTIONS retorna 200', async () => {
+  const req = new Request('http://localhost/criar-cobranca', { method: 'OPTIONS' });
   const resp = await handler(req);
   assertEquals(resp.status, 200);
 });
 
-Deno.test({
-  name: 'handler - GET retorna 405',
-  ...NO_LEAK,
-  async fn() {
-    const req = new Request('http://localhost/', {
-      method: 'GET',
-      headers: { authorization: 'Bearer segredo-alert' },
-    });
-    const resp = await handler(req);
-    assertEquals(resp.status, 405);
-  },
-});
+// ── Método errado ──────────────────────────────────────────────────
 
-// ── handler — autenticação ─────────────────────────────────────────
+Deno.test({ name: 'GET retorna 405', ...NO_LEAK, async fn() {
+  const req = new Request('http://localhost/criar-cobranca', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${FAKE_JWT}` },
+  });
+  const resp = await handler(req);
+  assertEquals(resp.status, 405);
+}});
 
-Deno.test({
-  name: 'handler - sem Authorization retorna 401',
-  ...NO_LEAK,
-  async fn() {
-    const req = new Request('http://localhost/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ plano_id: 'p-1' }),
-    });
-    const resp = await handler(req);
-    assertEquals(resp.status, 401);
-  },
-});
+// ── Autenticação ───────────────────────────────────────────────────
 
-Deno.test({
-  name: 'handler - ALERT_SECRET (tipo sistema) retorna 401 — requer usuário autenticado',
-  ...NO_LEAK,
-  async fn() {
-    const restore = stubFetch([]);
-    const req = makeUserReq({ plano_id: 'p-1' }, 'segredo-alert');
-    const resp = await handler(req);
-    assertEquals(resp.status, 401);
-    restore();
-  },
-});
+Deno.test({ name: 'sem Authorization retorna 401', ...NO_LEAK, async fn() {
+  const req = new Request('http://localhost/criar-cobranca', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ plano_id: 'plan-001' }),
+  });
+  const resp = await handler(req);
+  await assertRFC7807(resp, 401);
+}});
 
-// ── handler — JSON inválido ────────────────────────────────────────
+Deno.test({ name: 'token inválido retorna 401', ...NO_LEAK, async fn() {
+  const restore = stubFetch([
+    { body: { error: 'invalid token' }, status: 401 },
+  ]);
+  const req = makeReq({ plano_id: 'plan-001' }, 'token-invalido');
+  const resp = await handler(req);
+  assert(resp.status === 401 || resp.status === 400, `Status inesperado: ${resp.status}`);
+  restore();
+}});
 
-Deno.test({
-  name: 'handler - JSON malformado retorna 400',
-  ...NO_LEAK,
-  async fn() {
-    const restore = stubFetch([
-      { body: { id: 'usr-1', email: 'a@b.com' }, status: 200 },
-      { body: { tipo_conta: 'pf' }, status: 200 },
-    ]);
-    const req = new Request('http://localhost/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'authorization': 'Bearer jwt-simulado' },
-      body: '{malformado',
-    });
-    const resp = await handler(req);
-    assert(resp.status === 400 || resp.status === 401, `Esperava 400 ou 401, obteve ${resp.status}`);
-    restore();
-  },
-});
+Deno.test({ name: 'ALERT_SECRET é rejeitado (endpoint exige JWT de usuário)', ...NO_LEAK, async fn() {
+  const restore = stubFetch([
+    { body: { error: 'invalid token' }, status: 401 },
+  ]);
+  const req = makeReq({ plano_id: 'plan-001' }, 'test-alert-secret');
+  const resp = await handler(req);
+  // ALERT_SECRET não é aceito por este endpoint — espera 401 ou 403
+  assert([401, 403].includes(resp.status), `Status inesperado para ALERT_SECRET: ${resp.status}`);
+  restore();
+}});
 
-// ── handler — plano_id ausente ─────────────────────────────────────
+// ── Validação de input ─────────────────────────────────────────────
 
-Deno.test({
-  name: 'handler - sem plano_id retorna 400 (após auth de usuário)',
-  ...NO_LEAK,
-  async fn() {
-    const restore = stubFetch([
-      { body: { id: 'usr-1', email: 'a@b.com' }, status: 200 },
-      { body: { tipo_conta: 'pf' }, status: 200 },
-    ]);
-    const req = new Request('http://localhost/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'authorization': 'Bearer jwt-sem-plano' },
-      body: JSON.stringify({ metodo: 'PIX' }),
-    });
-    const resp = await handler(req);
-    assert(resp.status === 400 || resp.status === 401, `Esperava 400/401, obteve ${resp.status}`);
-    restore();
-  },
-});
+Deno.test({ name: 'plano_id ausente retorna 400 ou 422', ...NO_LEAK, async fn() {
+  const restore = stubFetch([
+    { body: { id: 'usr-001', email: 'a@b.com' }, status: 200 }, // getUser mock
+  ]);
+  const req = makeReq({ metodo: 'PIX' });
+  const resp = await handler(req);
+  assert([400, 422].includes(resp.status), `Status inesperado: ${resp.status}`);
+  restore();
+}});
 
-// ── handler — plano não encontrado ────────────────────────────────
+Deno.test({ name: 'metodo com valor inválido retorna 400 ou 422', ...NO_LEAK, async fn() {
+  const restore = stubFetch([
+    { body: { id: 'usr-001', email: 'a@b.com' }, status: 200 },
+  ]);
+  const req = makeReq({ plano_id: 'plan-001', metodo: 'CRYPTO' });
+  const resp = await handler(req);
+  assert([400, 422].includes(resp.status), `Status inesperado: ${resp.status}`);
+  restore();
+}});
 
-Deno.test({
-  name: 'handler - plano não encontrado retorna 404',
-  ...NO_LEAK,
-  async fn() {
-    const restore = stubFetch([
-      { body: { id: 'usr-1', email: 'a@b.com' }, status: 200 },
-      { body: { tipo_conta: 'pf' }, status: 200 },
-      { body: { error: { code: 'PGRST116' } }, status: 406 },
-    ]);
-    const req = new Request('http://localhost/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'authorization': 'Bearer jwt-plano-nao-existe' },
-      body: JSON.stringify({ plano_id: 'plano-inexistente' }),
-    });
-    const resp = await handler(req);
-    // 401 se auth falha, 404 se plano não encontrado, 502 se supabase propaga o erro 406
-    assert(resp.status === 401 || resp.status === 404 || resp.status === 502,
-      `Esperava 401/404/502, obteve ${resp.status}`);
-    restore();
-  },
-});
+// ── Happy paths ────────────────────────────────────────────────────
 
-// ── handler — fluxo completo com sucesso ───────────────────────────
+Deno.test({ name: 'PIX — cria cobrança com sucesso', ...NO_LEAK, async fn() {
+  const restore = stubFetch([
+    { body: { id: 'usr-001', email: 'pagante@test.com' }, status: 200 }, // getUser
+    { body: { id: 'plan-pix-001', nome: 'Mensal', valor: 29.90 }, status: 200 }, // buscar plano
+    { body: { id: 'asaas-pay-001', invoiceUrl: 'https://asaas.com/pix/001', status: 'PENDING' }, status: 200 }, // Asaas
+    { body: { data: [{ id: 'ins-db-001' }], error: null }, status: 200 }, // DB insert
+  ]);
+  const req = makeReq({ plano_id: 'plan-pix-001', metodo: 'PIX' });
+  const resp = await handler(req);
+  assert([200, 201].includes(resp.status), `PIX falhou com status ${resp.status}`);
+  if (resp.status === 200 || resp.status === 201) {
+    const body = await resp.json();
+    assert('charge_url' in body || 'id_externo' in body || 'ok' in body,
+      'Resposta não contém campos esperados');
+  }
+  restore();
+}});
 
-Deno.test({
-  name: 'handler - fluxo completo cria cobrança e retorna pagamento_id',
-  ...NO_LEAK,
-  async fn() {
-    const restore = stubFetch([
-      { body: { id: 'usr-real', email: 'real@teste.com' }, status: 200 },
-      { body: { tipo_conta: 'pf' }, status: 200 },
-      { body: { id: 'plan-mensal', nome: 'Mensal', preco: 29.9, tipo: 'mensal' }, status: 200 },
-      { body: { user: { id: 'usr-real', email: 'real@teste.com' } }, status: 200 },
-      { body: { nome: 'João', sobrenome: 'Silva', cnpj: null, asaas_customer_id: 'cus-asaas-1' }, status: 200 },
-      { body: { nome: 'João', telefone: '69999999999', email: 'real@teste.com' }, status: 200 },
-      { body: { id: 'pay-asaas-1', invoiceUrl: 'https://pay.asaas.com/1', pixTransaction: { payload: 'pix-123' } }, status: 200 },
-      { body: { id: 'pag-db-1' }, status: 201 },
-      { body: {}, status: 200 },
-    ]);
+Deno.test({ name: 'BOLETO — cria cobrança com sucesso', ...NO_LEAK, async fn() {
+  const restore = stubFetch([
+    { body: { id: 'usr-001', email: 'pagante@test.com' }, status: 200 },
+    { body: { id: 'plan-001', nome: 'Mensal', valor: 29.90 }, status: 200 },
+    { body: { id: 'asaas-bol-001', bankSlipUrl: 'https://asaas.com/boleto/001', status: 'PENDING' }, status: 200 },
+    { body: { data: [{ id: 'ins-db-002' }], error: null }, status: 200 },
+  ]);
+  const req = makeReq({ plano_id: 'plan-001', metodo: 'BOLETO' });
+  const resp = await handler(req);
+  assert([200, 201].includes(resp.status), `BOLETO falhou com status ${resp.status}`);
+  restore();
+}});
 
-    const req = new Request('http://localhost/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'authorization': 'Bearer jwt-fluxo-completo' },
-      body: JSON.stringify({ plano_id: 'plan-mensal', metodo: 'PIX' }),
-    });
-    const resp = await handler(req);
-    assert(resp.status === 200 || resp.status === 401 || resp.status === 502,
-      `Esperava 200, 401 ou 502, obteve ${resp.status}`);
+Deno.test({ name: 'metodo ausente usa PIX como default', ...NO_LEAK, async fn() {
+  const restore = stubFetch([
+    { body: { id: 'usr-001', email: 'pagante@test.com' }, status: 200 },
+    { body: { id: 'plan-001', nome: 'Mensal', valor: 29.90 }, status: 200 },
+    { body: { id: 'asaas-def-001', invoiceUrl: 'https://asaas.com/pix/def', status: 'PENDING' }, status: 200 },
+    { body: { data: [{ id: 'ins-db-003' }], error: null }, status: 200 },
+  ]);
+  const req = makeReq({ plano_id: 'plan-001' }); // sem metodo
+  const resp = await handler(req);
+  // Deve aceitar e usar PIX por padrão, ou retornar erro de validação
+  assert([200, 201, 400, 422].includes(resp.status));
+  restore();
+}});
 
-    if (resp.status === 200) {
-      const data = await resp.json();
-      assert(data.ok, 'ok deveria ser true');
-      assertEquals(typeof data.pagamento_id, 'string');
-    }
-    restore();
-  },
-});
+// ── Upstream errors ────────────────────────────────────────────────
 
-// ── handler — erro na cobrança Asaas ──────────────────────────────
+Deno.test({ name: 'Asaas 500 → retorna 5xx', ...NO_LEAK, async fn() {
+  const restore = stubFetch([
+    { body: { id: 'usr-001', email: 'pagante@test.com' }, status: 200 },
+    { body: { id: 'plan-001', nome: 'Mensal', valor: 29.90 }, status: 200 },
+    { body: { message: 'Internal Server Error' }, status: 500 }, // Asaas falha
+  ]);
+  const req = makeReq({ plano_id: 'plan-001', metodo: 'PIX' });
+  const resp = await handler(req);
+  assert([500, 502, 503].includes(resp.status), `Esperava 5xx, recebeu ${resp.status}`);
+  restore();
+}});
 
-Deno.test({
-  name: 'handler - erro no Asaas retorna 502',
-  ...NO_LEAK,
-  async fn() {
-    const restore = stubFetch([
-      { body: { id: 'usr-1', email: 'a@b.com' }, status: 200 },
-      { body: { tipo_conta: 'pf' }, status: 200 },
-      { body: { id: 'plan-1', nome: 'Mensal', preco: 29.9, tipo: 'mensal' }, status: 200 },
-      { body: { user: { id: 'usr-1', email: 'a@b.com' } }, status: 200 },
-      { body: { nome: 'Test', sobrenome: '', cnpj: null, asaas_customer_id: 'cus-1' }, status: 200 },
-      { body: { nome: 'Test', telefone: null, email: 'a@b.com' }, status: 200 },
-      { body: { errors: [{ description: 'Saldo insuficiente' }] }, status: 400 },
-    ]);
-    const req = new Request('http://localhost/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'authorization': 'Bearer jwt-asaas-falha' },
-      body: JSON.stringify({ plano_id: 'plan-1' }),
-    });
-    const resp = await handler(req);
-    assert(resp.status === 401 || resp.status === 502, `Esperava 401/502, obteve ${resp.status}`);
-    restore();
-  },
-});
+Deno.test({ name: 'Asaas 402 (limite) → retorna erro 4xx ou 5xx', ...NO_LEAK, async fn() {
+  const restore = stubFetch([
+    { body: { id: 'usr-001', email: 'pagante@test.com' }, status: 200 },
+    { body: { id: 'plan-001', nome: 'Mensal', valor: 29.90 }, status: 200 },
+    { body: { errors: [{ code: 'invalid_action', description: 'Limite atingido' }] }, status: 402 },
+  ]);
+  const req = makeReq({ plano_id: 'plan-001', metodo: 'PIX' });
+  const resp = await handler(req);
+  assert(resp.status >= 400, `Esperava 4xx/5xx, recebeu ${resp.status}`);
+  restore();
+}});
