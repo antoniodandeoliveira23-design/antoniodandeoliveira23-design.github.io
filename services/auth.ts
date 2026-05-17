@@ -640,12 +640,36 @@ export const authService = {
       }
       return null;
     }
+
+    // Caminho rápido: lê localStorage de forma síncrona (<1ms, sem rede)
+    // Supabase armazena a sessão na chave "sb-<project-ref>-auth-token"
+    if (typeof window !== 'undefined') {
+      try {
+        const storageKey = Object.keys(localStorage).find(
+          (k) => k.startsWith('sb-') && k.endsWith('-auth-token'),
+        );
+        if (storageKey) {
+          const raw = localStorage.getItem(storageKey);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            const u = parsed?.user;
+            const expiresAt: number = parsed?.expires_at ?? 0; // segundos Unix
+            const tokenValido = expiresAt > Math.floor(Date.now() / 1000) + 30;
+            if (u?.id && tokenValido) {
+              return mapSupabaseUser(u, null);
+            }
+          }
+        }
+      } catch { /* ignora erros de parse */ }
+    }
+
+    // Caminho lento: token expirado ou não encontrado — precisa de refresh via rede
     try {
-      // Timeout de 5s: evita travar quando o token expirou e o refresh HTTP demora
-      // (conexões lentas podem pendurar getSession() por minutos sem este guard)
-      const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000));
-      const sessionPromise = supabase.auth.getSession().then(({ data }) => data.session);
-      const session = await Promise.race([sessionPromise, timeoutPromise]);
+      const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000));
+      const session = await Promise.race([
+        supabase.auth.getSession().then(({ data }) => data.session),
+        timeout,
+      ]);
       if (!session?.user) return null;
       return mapSupabaseUser(session.user, null);
     } catch {

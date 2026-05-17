@@ -9,15 +9,12 @@ export default function SplashScreen() {
   const { signed, loading } = useAuth();
 
   useEffect(() => {
-    if (loading) return; // Aguarda o AuthContext carregar o usuário
-    const timer = setTimeout(() => {
-      if (signed) {
-        router.replace('/(tabs)');   // Já logado → vai direto para o app
-      } else {
-        router.replace('/onboarding'); // Primeiro acesso → onboarding
-      }
-    }, 500);
-    return () => clearTimeout(timer);
+    if (loading) return;
+    if (signed) {
+      router.replace('/(tabs)');
+    } else {
+      router.replace('/onboarding');
+    }
   }, [signed, loading]);
 
   return (
