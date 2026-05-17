@@ -53,7 +53,20 @@ export default function Login() {
     try {
       await login(email.trim(), senha);
     } catch (e: any) {
-      setErro(e.message || 'Erro ao fazer login.');
+      const msg: string = e.message || '';
+      if (msg.includes('Invalid login credentials') || msg.includes('invalid_credentials') || msg.includes('Invalid email or password')) {
+        setErro('E-mail ou senha incorretos. Verifique e tente novamente.');
+      } else if (msg.includes('Email not confirmed') || msg.includes('email_not_confirmed')) {
+        setErro('E-mail ainda não confirmado. Verifique sua caixa de entrada e clique no link que enviamos.');
+      } else if (msg.startsWith('RATE_LIMIT:')) {
+        const sec = Number(msg.split(':')[1]);
+        const min = Math.ceil(sec / 60);
+        setErro(`Muitas tentativas seguidas. Aguarde ${min} minuto${min > 1 ? 's' : ''} e tente novamente.`);
+      } else if (msg.includes('network') || msg.includes('fetch') || msg.includes('Network')) {
+        setErro('Sem conexão com a internet. Verifique sua rede e tente novamente.');
+      } else {
+        setErro('Erro ao fazer login. Verifique seus dados e tente novamente.');
+      }
     }
   };
 
@@ -204,7 +217,7 @@ const styles = StyleSheet.create({
   inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: CORES.backgroundInput, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.md, width: '100%', maxWidth: 400, height: 48, marginBottom: SPACING.md },
   inputIcon: { marginRight: SPACING.sm },
   input: { flex: 1, color: CORES.branco, fontSize: FONT_SIZE.sm },
-  erroText: { color: CORES.erro, fontSize: FONT_SIZE.xs, alignSelf: 'flex-start', maxWidth: 400, marginBottom: SPACING.sm },
+  erroText: { color: CORES.erro, fontSize: FONT_SIZE.sm, fontWeight: '600', alignSelf: 'flex-start', maxWidth: 400, marginBottom: SPACING.sm, backgroundColor: 'rgba(220,38,38,0.12)', padding: SPACING.sm, borderRadius: RADIUS.sm, width: '100%', lineHeight: 20 },
   ctaBtn: { width: '100%', maxWidth: 400, paddingVertical: 14, backgroundColor: CORES.roxo, borderRadius: RADIUS.sm, alignItems: 'center', marginTop: SPACING.sm, marginBottom: SPACING.lg },
   ctaBtnDisabled: { opacity: 0.6 },
   ctaBtnText: { color: CORES.branco, fontSize: FONT_SIZE.md, fontWeight: 'bold' },
