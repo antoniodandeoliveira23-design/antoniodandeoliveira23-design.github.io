@@ -36,6 +36,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   // Evita processar onAuthStateChange enquanto o login/logout manual já está rodando
   const _suppressAuthChange = useRef(false);
+  // Ref que espelha `user` para uso dentro de closures sem stale state
+  const _userRef = useRef<User | null>(null);
 
   useEffect(() => {
     loadStoredUser();
@@ -51,11 +53,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (_suppressAuthChange.current) return;
 
         if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
-          // Só atualiza se ainda não temos usuário (evita duplo update no nativo)
-          if (user) return;
+          // Usa ref para evitar stale closure — _userRef.current é sempre atual
+          if (_userRef.current) return;
           try {
-            const profile = await authService.getProfile(session.user.id);
-            setUser({
+            const profile = await authService.getProfile(session.user.id).catch(() => null);
+            const newUser: User = {
               id:           session.user.id,
               email:        session.user.email ?? '',
               nome:         profile?.nome      ?? session.user.user_metadata?.full_name?.split(' ')[0] ?? '',
@@ -69,12 +71,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               verificado:   profile?.verificado ?? false,
               criado_em:    profile?.criado_em  ?? session.user.created_at,
               atualizado_em: profile?.atualizado_em ?? session.user.created_at,
-            });
-          } catch { /* se falhar, usuario fica null */ }
+            };
+            _userRef.current = newUser;
+            setUser(newUser);
+          } catch { /* getProfile falhou — mantém estado atual */ }
           setLoading(false);
         }
 
         if (event === 'SIGNED_OUT') {
+          _userRef.current = null;
           setUser(null);
           setLoading(false);
         }
@@ -92,6 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Passo 1: lê sessão (com timeout interno de 5s em getSessionUser)
       const sessionUser = await authService.getSessionUser();
       if (sessionUser) {
+        _userRef.current = sessionUser;
         setUser(sessionUser);
         setLoading(false);
         clearTimeout(safetyTimer);
@@ -100,7 +106,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         authService.getProfile(sessionUser.id)
           .then((profile) => {
             if (profile) {
-              setUser((prev) => prev ? { ...prev, ...profile, id: prev.id, email: prev.email } : prev);
+              setUser((prev) => {
+                if (!prev) return prev;
+                const updated = { ...prev, ...profile, id: prev.id, email: prev.email };
+                _userRef.current = updated;
+                return updated;
+              });
             }
           })
           .catch(() => { /* falha silenciosa — já temos dados básicos */ });
@@ -119,6 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     try {
       const loggedUser = await authService.login(email, senha);
+      _userRef.current = loggedUser;
       setUser(loggedUser);
     } finally {
       setLoading(false);
@@ -130,6 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     try {
       const loggedUser = await authService.loginDemo(tipo);
+      _userRef.current = loggedUser;
       setUser(loggedUser);
     } finally {
       setLoading(false);
@@ -147,6 +160,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Na web, o redirect acontece — setUser aqui nunca é chamado de facto.
       // No nativo, loggedUser é o usuário real.
       if (loggedUser?.id && !loggedUser.id.startsWith('demo-')) {
+        _userRef.current = loggedUser;
         setUser(loggedUser);
       }
     } finally {
@@ -159,6 +173,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     try {
       const newUser = await authService.register(data);
+      _userRef.current = newUser;
       setUser(newUser);
     } finally {
       setLoading(false);
@@ -166,14 +181,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function logout() {
-    await authService.logout();
-    doisFA.resetar();   // invalida sessão 2FA ao sair
+    _userRef.current = null;
     setUser(null);
+    doisFA.resetar();   // invalida sessão 2FA ao sair
+    await authService.logout();
   }
 
   async function updateUser(data: Partial<User>) {
     if (!user) return;
     const updated = await authService.updateUser(user.id, data);
+    _userRef.current = updated;
     setUser(updated);
   }
 

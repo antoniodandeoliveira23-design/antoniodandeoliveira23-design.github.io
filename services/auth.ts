@@ -177,15 +177,20 @@ export const authService = {
     // Reset contador de falhas após sucesso
     rateLimiter.resetar('login', email);
 
-    await registrarAcesso('login', data.user.id);
-    await registrarAcao({
-      acao: 'login',
-      categoria: 'auth',
-      severidade: 'info',
-      resultado: 'sucesso',
-    });
+    // Audit fire-and-forget: nunca bloqueia nem quebra o login
+    Promise.resolve().then(() =>
+      registrarAcesso('login', data.user.id).catch(() => {})
+    );
+    Promise.resolve().then(() =>
+      registrarAcao({
+        acao: 'login',
+        categoria: 'auth',
+        severidade: 'info',
+        resultado: 'sucesso',
+      }).catch(() => {})
+    );
 
-    const profile = await this.getProfile(data.user.id);
+    const profile = await this.getProfile(data.user.id).catch(() => null);
     return mapSupabaseUser(data.user, profile);
   },
 

@@ -41,13 +41,16 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     return () => sessionGuard.parar();
   }, [signed]);
 
+  // Converte o array segments em string estável para evitar re-runs a cada render
+  const segmentoAtual = segments[0] ?? '';
+
   useEffect(() => {
     if (loading) return;
 
-    const inAuthGroup = segments[0] === '(tabs)';
-    const inAdminGroup = segments[0] === 'admin';
-    const publicRoutes = ['login', 'register', 'onboarding', 'index', 'permissao-localizacao'];
-    const inPublicRoute = !segments[0] || publicRoutes.includes(segments[0] as string);
+    const inAuthGroup = segmentoAtual === '(tabs)';
+    const inAdminGroup = segmentoAtual === 'admin';
+    const publicRoutes = ['login', 'register', 'onboarding', 'index', 'permissao-localizacao', ''];
+    const inPublicRoute = publicRoutes.includes(segmentoAtual);
     const inProtectedRoute = !inAuthGroup && !inAdminGroup && !inPublicRoute;
 
     if (signed && inPublicRoute) {
@@ -60,7 +63,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     } else if (!signed && (inAuthGroup || inAdminGroup || inProtectedRoute)) {
       router.replace('/login');
     }
-  }, [signed, loading, segments, user?.tipo_conta]);
+  }, [signed, loading, segmentoAtual, user?.tipo_conta]);
 
   if (loading) {
     return (
