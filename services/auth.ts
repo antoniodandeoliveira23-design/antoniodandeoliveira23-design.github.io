@@ -161,16 +161,16 @@ export const authService = {
     });
 
     if (error) {
-      // Rastreia falhas de login para detectar força bruta
       trackLoginFalha(email);
-      await registrarAcesso('login_falha');
-      await registrarAcao({
+      // Audit fire-and-forget: nunca bloqueia nem obscurece a mensagem de erro real
+      Promise.resolve().then(() => registrarAcesso('login_falha').catch(() => {}));
+      Promise.resolve().then(() => registrarAcao({
         acao: 'login_falha',
         categoria: 'auth',
         severidade: 'aviso',
         detalhes: { email_hash: email.substring(0, 3) + '***', motivo: error.message },
         resultado: 'falha',
-      });
+      }).catch(() => {}));
       throw new Error(error.message);
     }
 
@@ -602,15 +602,15 @@ export const authService = {
       storageSeguro.limparTudo();
       return;
     }
-    const { data: { user } } = await supabase.auth.getUser();
-    await registrarAcesso('logout', user?.id);
-    await registrarAcao({
-      acao: 'logout',
-      categoria: 'auth',
-      severidade: 'info',
-      resultado: 'sucesso',
+    // scope:'local' invalida apenas a sessão deste dispositivo,
+    // sem afetar sessões abertas em outros dispositivos do mesmo usuário
+    await supabase.auth.signOut({ scope: 'local' });
+    Promise.resolve().then(async () => {
+      try {
+        await registrarAcesso('logout');
+        await registrarAcao({ acao: 'logout', categoria: 'auth', severidade: 'info', resultado: 'sucesso' });
+      } catch { /* audit nunca bloqueia */ }
     });
-    await supabase.auth.signOut();
   },
 
   async getStoredUser(): Promise<User | null> {
