@@ -2,8 +2,6 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect } from 'react';
 import {
-  Alert,
-  Dimensions,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -15,11 +13,8 @@ import {
 } from 'react-native';
 import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { setDemoTipoConta } from '@/services/auth';
 import SocialLoginButtons from '@/components/SocialLoginButtons';
 import type { TipoConta } from '@/types';
-
-const { width } = Dimensions.get('window');
 
 const DEMO_ACCOUNTS: { tipo: TipoConta; label: string; icon: string; desc: string; iconLib?: 'material' }[] = [
   { tipo: 'pf', label: 'Pessoa Física', icon: 'person', desc: 'Eventos gratuitos e sociais' },
@@ -31,12 +26,13 @@ const DEMO_ACCOUNTS: { tipo: TipoConta; label: string; icon: string; desc: strin
 export default function Login() {
   const router = useRouter();
   const { erro: erroParam } = useLocalSearchParams<{ erro?: string }>();
-  const { login, loginDemo, loginSocial, loading } = useAuth();
+  const { login, loginDemo, loginSocial } = useAuth();
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [senhaVisivel, setSenhaVisivel] = useState(false);
   const [erro, setErro] = useState('');
   const [demoTipo, setDemoTipo] = useState<TipoConta>('pf');
+  const [processando, setProcessando] = useState(false);
 
   useEffect(() => {
     if (erroParam === 'oauth_desativado') {
@@ -50,6 +46,7 @@ export default function Login() {
       setErro('Preencha e-mail e senha.');
       return;
     }
+    setProcessando(true);
     try {
       await login(email.trim(), senha);
     } catch (e: any) {
@@ -67,30 +64,38 @@ export default function Login() {
       } else {
         setErro('Erro ao fazer login. Verifique seus dados e tente novamente.');
       }
+    } finally {
+      setProcessando(false);
     }
   };
 
   const handleDemoLogin = async (tipo: TipoConta) => {
     setDemoTipo(tipo);
+    setProcessando(true);
     try {
       await loginDemo(tipo);
     } catch (e: any) {
       setErro(e.message || 'Erro ao entrar.');
+    } finally {
+      setProcessando(false);
     }
   };
 
   const handleSocial = async (provider: 'google' | 'apple' | 'x') => {
     setErro('');
+    setProcessando(true);
     try {
       await loginSocial(provider);
     } catch (e: any) {
       const msg: string = e.message || '';
-      if (msg === 'LOGIN_CANCELADO') return; // usuário fechou o browser — silencioso
+      if (msg === 'LOGIN_CANCELADO') return;
       if (msg.includes('provider') || msg.includes('not enabled') || msg.includes('disabled')) {
         setErro('Este método de login ainda não está ativo. Use e-mail e senha.');
         return;
       }
       setErro(msg || 'Erro ao fazer login social. Tente novamente.');
+    } finally {
+      setProcessando(false);
     }
   };
 
@@ -131,7 +136,7 @@ export default function Login() {
         {/* Login Social — botões com branding real */}
         <SocialLoginButtons
           onPress={handleSocial}
-          disabled={loading}
+          disabled={processando}
           variant="full"
         />
 
@@ -174,8 +179,8 @@ export default function Login() {
 
         {erro ? <Text style={styles.erroText}>{erro}</Text> : null}
 
-        <TouchableOpacity style={[styles.ctaBtn, loading && styles.ctaBtnDisabled]} onPress={handleLogin} disabled={loading}>
-          <Text style={styles.ctaBtnText}>{loading ? 'Entrando...' : 'Entrar'}</Text>
+        <TouchableOpacity style={[styles.ctaBtn, processando && styles.ctaBtnDisabled]} onPress={handleLogin} disabled={processando}>
+          <Text style={styles.ctaBtnText}>{processando ? 'Entrando...' : 'Entrar'}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.push('/recuperar-senha' as any)} style={styles.forgotBtn}>

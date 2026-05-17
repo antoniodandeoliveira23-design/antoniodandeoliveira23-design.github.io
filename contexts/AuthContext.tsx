@@ -126,58 +126,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function login(email: string, senha: string) {
+    // NÃO chama setLoading — o AuthGuard desmontaria o login.tsx, fazendo o
+    // setErro() do catch apontar para a instância antiga (no-op). O estado de
+    // carregamento durante o login é gerenciado localmente pela própria tela.
     _suppressAuthChange.current = true;
-    setLoading(true);
     try {
       const loggedUser = await authService.login(email, senha);
       _userRef.current = loggedUser;
       setUser(loggedUser);
     } finally {
-      setLoading(false);
       _suppressAuthChange.current = false;
     }
   }
 
   async function loginDemo(tipo: 'pf' | 'pj' | 'gov' | 'admin') {
-    setLoading(true);
-    try {
-      const loggedUser = await authService.loginDemo(tipo);
-      _userRef.current = loggedUser;
-      setUser(loggedUser);
-    } finally {
-      setLoading(false);
-    }
+    const loggedUser = await authService.loginDemo(tipo);
+    _userRef.current = loggedUser;
+    setUser(loggedUser);
   }
 
   async function loginSocial(provider: 'google' | 'apple' | 'x') {
-    // No nativo, loginSocial() retorna o usuário diretamente (PKCE completo).
-    // Na web, loginSocial() redireciona a página — onAuthStateChange captura o retorno.
-    // Por isso, só suprimimos no nativo.
     _suppressAuthChange.current = true;
-    setLoading(true);
     try {
       const loggedUser = await authService.loginSocial(provider);
-      // Na web, o redirect acontece — setUser aqui nunca é chamado de facto.
-      // No nativo, loggedUser é o usuário real.
       if (loggedUser?.id && !loggedUser.id.startsWith('demo-')) {
         _userRef.current = loggedUser;
         setUser(loggedUser);
       }
     } finally {
-      setLoading(false);
       _suppressAuthChange.current = false;
     }
   }
 
   async function register(data: RegisterData) {
-    setLoading(true);
-    try {
-      const newUser = await authService.register(data);
-      _userRef.current = newUser;
-      setUser(newUser);
-    } finally {
-      setLoading(false);
-    }
+    const newUser = await authService.register(data);
+    _userRef.current = newUser;
+    setUser(newUser);
   }
 
   async function logout() {
