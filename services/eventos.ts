@@ -9,11 +9,23 @@ import { emailService } from './email';
  * Retorna o usuário autenticado real do Supabase, ou null se:
  *  - Supabase não estiver configurado, OU
  *  - O usuário entrou pelo modo demo (sem sessão real)
+ * Usa getUser() (validação server-side) — adequado para operações de leitura/auth críticas.
  */
 async function getSupabaseUser() {
   if (!supabaseConfigured) return null;
   const { data: { user } } = await supabase.auth.getUser();
   return user ?? null;
+}
+
+/**
+ * Versão rápida: lê o JWT do localStorage sem chamada de rede.
+ * Segura para escrita porque o RLS do Supabase valida o JWT no servidor durante o INSERT.
+ * Economiza ~200-300ms no path de criação de eventos.
+ */
+async function getSupabaseUserFast() {
+  if (!supabaseConfigured) return null;
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.user ?? null;
 }
 
 /** True quando devemos usar dados locais de demo (sem sessão Supabase real) */
@@ -209,7 +221,7 @@ export const eventosService = {
 
   // ── CRIAR ──────────────────────────────────────────────
   async criar(eventoData: CriarEventoData, tipoContaDemo?: 'pf' | 'pj' | 'gov' | 'admin', verificadoDemo?: boolean): Promise<Evento> {
-    const user = await getSupabaseUser();
+    const user = await getSupabaseUserFast();
 
     // Modo demo: sem sessão Supabase real (login demo ou Supabase não configurado)
     if (!user) {
@@ -267,7 +279,7 @@ export const eventosService = {
       criado_em: new Date().toISOString(),
     };
 
-    const { data, error } = await supabase.from('eventos').insert(novoEvento).select('*, criador:profiles(*)').single();
+    const { data, error } = await supabase.from('eventos').insert(novoEvento).select('*').single();
     if (error) {
       await registrarAcao({ acao: 'evento_criacao_falha', categoria: 'evento', severidade: 'aviso', detalhes: { motivo: error.message }, resultado: 'falha' });
       throw new Error(error.message);

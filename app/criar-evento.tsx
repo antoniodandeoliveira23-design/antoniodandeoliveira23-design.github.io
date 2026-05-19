@@ -199,7 +199,7 @@ export default function CriarEvento() {
         setModalBloqueio(true);
 
         // Registra anomalia quando conteúdo comercial é detectado em conta PF/Gov
-        await registrarAnomalia({
+        registrarAnomalia({
           userId: user?.id,
           tipo: 'conteudo_suspeito',
           descricao: `Evento bloqueado por conteúdo comercial detectado em conta ${user.tipo_conta.toUpperCase()}`,
@@ -218,7 +218,7 @@ export default function CriarEvento() {
       const analise = validacaoSemantica.analisar(textoCompleto, 'produto');
       if (analise.bloqueado) {
         setErro(analise.motivo ?? 'Conteúdo não permitido. Revise o nome e descrição.');
-        await registrarAnomalia({
+        registrarAnomalia({
           userId: user?.id,
           tipo: 'conteudo_suspeito',
           descricao: `Evento bloqueado por conteúdo ofensivo/spam em conta ${user?.tipo_conta?.toUpperCase()}`,

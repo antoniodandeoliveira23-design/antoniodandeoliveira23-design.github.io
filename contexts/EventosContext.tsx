@@ -178,23 +178,20 @@ export function EventosProvider({ children }: { children: React.ReactNode }) {
   }, [filtroCategoria, paginacao.porPagina]);
 
   // ── Criar evento ───────────────────────────────────────
+  // Não usa o loading compartilhado — o caller (criar-evento.tsx) tem seu próprio estado
+  // de carregando, evitando spinner na lista durante a criação.
   const criarEvento = useCallback(async (
     data: CriarEventoData,
     tipoContaDemo?: 'pf' | 'pj' | 'gov' | 'admin',
     verificadoDemo?: boolean,
   ): Promise<Evento> => {
-    setLoading(true);
-    try {
-      const novo = await eventosService.criar(data, tipoContaDemo, verificadoDemo);
-      // Insere no topo apenas se aprovado (pendente vai para moderação)
-      if (novo.status === 'aprovado') {
-        setEventos((prev) => [novo, ...prev]);
-        setPaginacao((p) => ({ ...p, total: p.total + 1 }));
-      }
-      return novo;
-    } finally {
-      setLoading(false);
+    const novo = await eventosService.criar(data, tipoContaDemo, verificadoDemo);
+    // Insere no topo apenas se aprovado (pendente vai para moderação)
+    if (novo.status === 'aprovado') {
+      setEventos((prev) => [novo, ...prev]);
+      setPaginacao((p) => ({ ...p, total: p.total + 1 }));
     }
+    return novo;
   }, []);
 
   // ── Editar evento ──────────────────────────────────────
