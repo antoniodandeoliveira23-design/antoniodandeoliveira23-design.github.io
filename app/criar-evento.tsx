@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState, useMemo, Suspense } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -14,7 +14,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import type { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+const DateTimePicker = React.lazy(() =>
+  import('@react-native-community/datetimepicker').then((mod) => ({ default: mod.default }))
+);
 import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEventos } from '@/contexts/EventosContext';
@@ -131,22 +134,16 @@ export default function CriarEvento() {
     setPickerModo('date');
   };
 
-  // Geocoding: captura GPS silenciosamente em background ao abrir a tela
+  // Geocoding: captura GPS quando o usuário toca no campo de endereço
   const coordsRef = useRef<Coordenadas>(COORDS_PADRAO);
-  const [coordsObtidas, setCoordsObtidas] = useState(false);
-
-  useEffect(() => {
-    localizacaoService.obterPosicao().then((pos) => {
-      if (pos) {
-        coordsRef.current = pos;
-        setCoordsObtidas(true);
-      }
-    });
-  }, []);
 
   // Imagem do evento
   const [imagemUrl, setImagemUrl] = useState<string | undefined>();
-  const campoCaminhoImagem = storageService.gerarCaminho(user?.id || 'demo');
+  const campoCaminhoImagem = useMemo(
+    () => storageService.gerarCaminho(user?.id || 'demo'),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
 
   // R2: Modal de bloqueio comercial
   const [modalBloqueio, setModalBloqueio] = useState(false);
@@ -309,7 +306,14 @@ export default function CriarEvento() {
         <Text style={styles.label}>Endereço</Text>
         <View style={styles.inputWrapper}>
           <Ionicons name="location-outline" size={18} color={CORES.cinza} style={styles.inputIcon} />
-          <TextInput style={styles.input} placeholder="Av. Brasil, 123 - Vilhena, RO" placeholderTextColor={CORES.cinza} value={local} onChangeText={setLocal} />
+          <TextInput
+            style={styles.input}
+            placeholder="Av. Brasil, 123 - Vilhena, RO"
+            placeholderTextColor={CORES.cinza}
+            value={local}
+            onChangeText={setLocal}
+            onFocus={() => localizacaoService.obterPosicao().then((pos) => { if (pos) coordsRef.current = pos; })}
+          />
         </View>
 
         <Text style={styles.label}>Data e hora</Text>
@@ -347,13 +351,15 @@ export default function CriarEvento() {
 
         {/* ── Android: DateTimePicker renderizado fora do modal ─ */}
         {Platform.OS === 'android' && pickerVisivel && (
-          <DateTimePicker
-            value={dataObj ?? new Date()}
-            mode={pickerModo}
-            display="default"
-            onChange={onChangeAndroid}
-            minimumDate={new Date()}
-          />
+          <Suspense fallback={null}>
+            <DateTimePicker
+              value={dataObj ?? new Date()}
+              mode={pickerModo}
+              display="default"
+              onChange={onChangeAndroid}
+              minimumDate={new Date()}
+            />
+          </Suspense>
         )}
 
         {/* ── iOS: Modal com spinner + botões Cancelar / OK ──── */}
@@ -376,17 +382,19 @@ export default function CriarEvento() {
                   </TouchableOpacity>
                 </View>
                 {/* Spinner */}
-                <DateTimePicker
-                  value={pickerTempIOS}
-                  mode={pickerModo}
-                  display="spinner"
-                  onChange={onChangeIOS}
-                  minimumDate={pickerModo === 'date' ? new Date() : undefined}
-                  locale="pt-BR"
-                  textColor="#FFFFFF"
-                  themeVariant="dark"
-                  style={styles.pickerSpinner}
-                />
+                <Suspense fallback={null}>
+                  <DateTimePicker
+                    value={pickerTempIOS}
+                    mode={pickerModo}
+                    display="spinner"
+                    onChange={onChangeIOS}
+                    minimumDate={pickerModo === 'date' ? new Date() : undefined}
+                    locale="pt-BR"
+                    textColor="#FFFFFF"
+                    themeVariant="dark"
+                    style={styles.pickerSpinner}
+                  />
+                </Suspense>
               </View>
             </View>
           </Modal>
