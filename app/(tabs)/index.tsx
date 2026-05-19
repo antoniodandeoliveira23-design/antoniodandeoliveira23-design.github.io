@@ -20,7 +20,7 @@ import { useEventos } from '@/contexts/EventosContext';
 import ModalDenuncia from '@/components/ModalDenuncia';
 import MapaInterativo from '@/components/MapaInterativo';
 import { produtosService } from '@/services/produtos';
-import { localizacaoService, type Coordenadas } from '@/services/localizacao';
+import { localizacaoService, COORDS_PADRAO, type Coordenadas } from '@/services/localizacao';
 import { inscricoesService } from '@/services/inscricoes';
 import type { Evento, CategoriaEvento, FiltroTemporal, Produto } from '@/types';
 
@@ -379,6 +379,7 @@ export default function HomeScreen() {
             <MapaInterativo
               eventos={eventosFiltrados}
               onEventoPress={(evento) => abrirEvento(evento)}
+              centro={posicaoAtual ?? COORDS_PADRAO}
             />
           ) : (
             <View style={styles.mapPlaceholder}>

@@ -134,8 +134,27 @@ export default function CriarEvento() {
     setPickerModo('date');
   };
 
-  // Geocoding: captura GPS quando o usuário toca no campo de endereço
-  const coordsRef = useRef<Coordenadas>(COORDS_PADRAO);
+  // Geocoding: GPS ao focar + Nominatim ao sair do campo (maior precisão)
+  const coordsRef            = useRef<Coordenadas>(COORDS_PADRAO);
+  const geocodadoPorNominatim = useRef(false);
+
+  const geocodificarEndereco = async (texto: string) => {
+    if (!texto.trim()) return;
+    try {
+      const q = encodeURIComponent(texto + ', Rondônia, Brasil');
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`,
+        { headers: { 'Accept-Language': 'pt-BR,pt;q=0.9' } },
+      );
+      const data = await res.json();
+      if (data?.[0]?.lat && data?.[0]?.lon) {
+        coordsRef.current = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        geocodadoPorNominatim.current = true;
+      }
+    } catch {
+      // Nominatim indisponível — mantém GPS ou COORDS_PADRAO
+    }
+  };
 
   // Imagem do evento
   const [imagemUrl, setImagemUrl] = useState<string | undefined>();
@@ -311,8 +330,15 @@ export default function CriarEvento() {
             placeholder="Av. Brasil, 123 - Vilhena, RO"
             placeholderTextColor={CORES.cinza}
             value={local}
-            onChangeText={setLocal}
-            onFocus={() => localizacaoService.obterPosicao().then((pos) => { if (pos) coordsRef.current = pos; })}
+            onChangeText={(text) => { setLocal(text); geocodadoPorNominatim.current = false; }}
+            onFocus={() => {
+              if (!geocodadoPorNominatim.current) {
+                localizacaoService.obterPosicao().then((pos) => {
+                  if (pos && !geocodadoPorNominatim.current) coordsRef.current = pos;
+                });
+              }
+            }}
+            onBlur={() => geocodificarEndereco(local)}
           />
         </View>
 

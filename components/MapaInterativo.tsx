@@ -193,12 +193,21 @@ export default function MapaInterativo({
     if (markersRef.current.length > 0) {
       try {
         const group = L.featureGroup(markersRef.current);
-        mapRef.current.fitBounds(group.getBounds().pad(0.3));
+        mapRef.current.fitBounds(group.getBounds().pad(0.3), { maxZoom: 15 });
+        // Garante zoom mínimo de 10 caso fitBounds escolha zoom muito baixo
+        if (mapRef.current.getZoom() < 10) {
+          const c = group.getBounds().getCenter();
+          mapRef.current.setView([c.lat, c.lng], 13, { animate: false });
+        }
       } catch {
-        // fitBounds falha se bounds inválidos — mantém view padrão
+        // fitBounds falhou — centraliza na posição do usuário ou default
+        mapRef.current.setView([centro.lat, centro.lng], 13, { animate: false });
       }
+    } else {
+      // Sem eventos visíveis — centraliza na posição do usuário ou default
+      mapRef.current.setView([centro.lat, centro.lng], 13, { animate: false });
     }
-  }, [eventos, mapReady]);
+  }, [eventos, mapReady, centro.lat, centro.lng]);
 
   return (
     <View style={styles.container}>
@@ -238,7 +247,7 @@ export default function MapaInterativo({
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    height: '100%',
     borderRadius: 16,
     overflow: 'hidden',
     position: 'relative',
