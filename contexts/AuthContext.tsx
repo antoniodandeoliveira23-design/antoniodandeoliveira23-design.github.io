@@ -159,9 +159,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function register(data: RegisterData) {
-    const newUser = await authService.register(data);
-    _userRef.current = newUser;
-    setUser(newUser);
+    _suppressAuthChange.current = true;
+    try {
+      const newUser = await authService.register(data);
+      _userRef.current = newUser;
+      setUser(newUser);
+    } finally {
+      _suppressAuthChange.current = false;
+    }
   }
 
   async function logout() {

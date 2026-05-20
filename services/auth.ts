@@ -466,6 +466,13 @@ export const authService = {
     }
     if (!data.user) throw new Error('Erro ao criar conta');
 
+    // session=null quando "Email Confirmation" está habilitado no Supabase.
+    // A conta foi criada mas o JWT só existe após o usuário clicar no link.
+    // Não fingimos login — lançamos erro tratável para mostrar tela de confirmação.
+    if (!data.session) {
+      throw new Error('EMAIL_CONFIRMACAO_NECESSARIA');
+    }
+
     // O trigger on_auth_user_created (004_functions.sql) cria o profile
     // automaticamente a partir de raw_user_meta_data. Aguarda até 1s para
     // garantir que o trigger tenha executado antes de ler o perfil.

@@ -25,6 +25,7 @@ export default function Register() {
   const { register, loginSocial, loading } = useAuth();
   const [passo, setPasso] = useState<Passo>(1);
   const [erro, setErro] = useState('');
+  const [confirmacaoPendente, setConfirmacaoPendente] = useState(false);
 
   // Passo 1: Social ou email
   const [nome, setNome] = useState('');
@@ -102,11 +103,14 @@ export default function Register() {
         cnpj: tipoConta === 'pj' ? cnpj.trim() : undefined,
         genero: genero || undefined,
       });
-      // Navegação explícita após cadastro bem-sucedido
-      router.replace('/(tabs)');
+      // Navegação delegada ao AuthGuard — ele detecta signed=true e redireciona
     } catch (e: any) {
       const msg: string = e.message || '';
-      if (msg.startsWith('SENHA_FRACA:')) {
+      if (msg === 'EMAIL_CONFIRMACAO_NECESSARIA') {
+        // Conta criada, mas Supabase exige confirmação antes de liberar sessão
+        setConfirmacaoPendente(true);
+        return;
+      } else if (msg.startsWith('SENHA_FRACA:')) {
         const erros = msg.replace('SENHA_FRACA:', '').split('|');
         setErro('Senha fraca: ' + erros[0]);
       } else if (msg.startsWith('RATE_LIMIT:')) {
@@ -329,6 +333,36 @@ export default function Register() {
   );
 
   // ==================== RENDER ====================
+
+  if (confirmacaoPendente) {
+    return (
+      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={[styles.scroll, { justifyContent: 'center' }]} keyboardShouldPersistTaps="handled">
+          <View style={{ alignItems: 'center', width: '100%', maxWidth: 400 }}>
+            <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: CORES.roxo, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.xl }}>
+              <Ionicons name="mail" size={36} color={CORES.branco} />
+            </View>
+            <Text style={{ fontSize: FONT_SIZE.xl, fontWeight: 'bold', color: CORES.branco, textAlign: 'center', marginBottom: SPACING.md }}>
+              Confirme seu e-mail
+            </Text>
+            <Text style={{ fontSize: FONT_SIZE.sm, color: CORES.cinzaClaro, textAlign: 'center', lineHeight: 22, marginBottom: SPACING.xs }}>
+              Enviamos um link de ativação para:
+            </Text>
+            <Text style={{ fontSize: FONT_SIZE.md, color: CORES.branco, fontWeight: 'bold', textAlign: 'center', marginBottom: SPACING.lg }}>
+              {email.trim()}
+            </Text>
+            <Text style={{ fontSize: FONT_SIZE.xs, color: CORES.cinzaClaro, textAlign: 'center', lineHeight: 20, marginBottom: SPACING.xl }}>
+              Clique no link do e-mail para ativar sua conta. Verifique também a pasta de spam.
+            </Text>
+            <TouchableOpacity style={styles.ctaBtn} onPress={() => router.replace('/login')}>
+              <Text style={styles.ctaBtnText}>Ir para o login</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
+
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
