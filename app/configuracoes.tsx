@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Switch,
@@ -10,12 +11,83 @@ import {
   View,
 } from 'react-native';
 import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
+import { supabase } from '@/services/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function ConfiguracoesScreen() {
   const router = useRouter();
+  const { logout } = useAuth();
   const [notificacoes, setNotificacoes] = useState(true);
   const [localizacao, setLocalizacao] = useState(true);
   const [modoEscuro, setModoEscuro] = useState(true);
+  const [excluindo, setExcluindo] = useState(false);
+
+  async function excluirConta() {
+    if (excluindo) return;
+
+    // Passo 1 — confirmação inicial
+    Alert.alert(
+      'Excluir conta',
+      'Tem certeza que deseja excluir sua conta? Todos os seus dados, eventos e inscrições serão apagados permanentemente.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Continuar',
+          style: 'destructive',
+          onPress: confirmarExclusaoFinal,
+        },
+      ]
+    );
+  }
+
+  async function confirmarExclusaoFinal() {
+    // Passo 2 — segunda confirmação (ação irreversível)
+    Alert.alert(
+      'Confirmação final',
+      'Esta ação é irreversível. Sua conta será excluída permanentemente agora.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir definitivamente',
+          style: 'destructive',
+          onPress: realizarExclusao,
+        },
+      ]
+    );
+  }
+
+  async function realizarExclusao() {
+    setExcluindo(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Sessão inválida');
+
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+      const resp = await fetch(`${supabaseUrl}/functions/v1/excluir-conta`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({}));
+        throw new Error(body?.error ?? `Erro ${resp.status}`);
+      }
+
+      // Limpa sessão local e redireciona para login
+      await logout();
+      router.replace('/login');
+    } catch (err: any) {
+      setExcluindo(false);
+      Alert.alert(
+        'Erro ao excluir conta',
+        err?.message ?? 'Tente novamente mais tarde.',
+        [{ text: 'OK' }]
+      );
+    }
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
@@ -65,7 +137,7 @@ export default function ConfiguracoesScreen() {
       {/* Privacidade */}
       <Text style={styles.sectionTitle}>Privacidade</Text>
       <View style={styles.card}>
-        <TouchableOpacity style={styles.settingRow}>
+        <TouchableOpacity style={styles.settingRow} onPress={() => router.push('/politica-privacidade')}>
           <Ionicons name="shield-outline" size={20} color={CORES.branco} />
           <View style={styles.settingInfo}>
             <Text style={styles.settingLabel}>Política de privacidade</Text>
@@ -75,7 +147,7 @@ export default function ConfiguracoesScreen() {
 
         <View style={styles.divider} />
 
-        <TouchableOpacity style={styles.settingRow}>
+        <TouchableOpacity style={styles.settingRow} onPress={() => router.push('/termos-de-servico')}>
           <Ionicons name="document-text-outline" size={20} color={CORES.branco} />
           <View style={styles.settingInfo}>
             <Text style={styles.settingLabel}>Termos de serviço</Text>
@@ -99,13 +171,19 @@ export default function ConfiguracoesScreen() {
       {/* Danger zone */}
       <Text style={[styles.sectionTitle, { color: CORES.erro }]}>Zona de perigo</Text>
       <View style={[styles.card, { borderWidth: 1, borderColor: CORES.erro + '44' }]}>
-        <TouchableOpacity style={styles.settingRow}>
-          <Ionicons name="trash-outline" size={20} color={CORES.erro} />
+        <TouchableOpacity
+          style={styles.settingRow}
+          onPress={excluirConta}
+          disabled={excluindo}
+        >
+          <Ionicons name="trash-outline" size={20} color={excluindo ? CORES.cinza : CORES.erro} />
           <View style={styles.settingInfo}>
-            <Text style={[styles.settingLabel, { color: CORES.erro }]}>Excluir minha conta</Text>
+            <Text style={[styles.settingLabel, { color: excluindo ? CORES.cinza : CORES.erro }]}>
+              {excluindo ? 'Excluindo...' : 'Excluir minha conta'}
+            </Text>
             <Text style={styles.settingDesc}>Esta ação é irreversível</Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={CORES.erro} />
+          {!excluindo && <Ionicons name="chevron-forward" size={18} color={CORES.erro} />}
         </TouchableOpacity>
       </View>
     </ScrollView>
