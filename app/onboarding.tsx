@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
+import { useSEO } from '@/hooks/useSEO';
 
 const { width } = Dimensions.get('window');
 
@@ -39,6 +40,11 @@ const STEPS = [
 export default function Onboarding() {
   const router = useRouter();
   const [step, setStep] = useState(0);
+
+  useSEO({
+    titulo:   'Bem-vindo ao AGORA',
+    descricao: 'O AGORA conecta você aos melhores eventos, shows e promoções de Vilhena – RO. Cadastre-se grátis e fique por dentro.',
+  });
 
   const current = STEPS[step];
 

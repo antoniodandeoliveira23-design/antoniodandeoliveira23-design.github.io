@@ -1,6 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import SocialLoginButtons from '@/components/SocialLoginButtons';
+import { useSEO } from '@/hooks/useSEO';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -23,6 +24,11 @@ type Passo = 1 | 2 | 3;
 export default function Register() {
   const router = useRouter();
   const { register, loginSocial, loading } = useAuth();
+
+  useSEO({
+    titulo:   'Criar conta',
+    descricao: 'Crie sua conta gratuita no AGORA e comece a descobrir eventos, shows e promoções em Vilhena – RO.',
+  });
   const [passo, setPasso] = useState<Passo>(1);
   const [erro, setErro] = useState('');
   const [confirmacaoPendente, setConfirmacaoPendente] = useState(false);

@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
+import { useSEO } from '@/hooks/useSEO';
 import { useAuth } from '@/contexts/AuthContext';
 import SocialLoginButtons from '@/components/SocialLoginButtons';
 import type { TipoConta } from '@/types';
@@ -27,6 +28,11 @@ export default function Login() {
   const router = useRouter();
   const { erro: erroParam } = useLocalSearchParams<{ erro?: string }>();
   const { login, loginDemo, loginSocial } = useAuth();
+
+  useSEO({
+    titulo:   'Entrar',
+    descricao: 'Acesse sua conta no AGORA e descubra os melhores eventos de Vilhena – RO.',
+  });
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [senhaVisivel, setSenhaVisivel] = useState(false);

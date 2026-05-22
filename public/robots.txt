@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /configuracoes
+Disallow: /editar-perfil
+Disallow: /auth/
+Disallow: /pagamento
+
+Sitemap: https://antoniodandeoliveira23-designgithub-q4yxy93ji.vercel.app/sitemap.xml

@@ -112,7 +112,75 @@ function RootLayoutContent() {
       meta('theme-color', '#1A0B2E');
       meta('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
 
-      document.title = 'AGORA';
+      // ── SEO básico ────────────────────────────────────────────────────
+      const APP_URL  = process.env.EXPO_PUBLIC_APP_URL ?? 'https://antoniodandeoliveira23-designgithub-q4yxy93ji.vercel.app';
+      const OG_IMAGE = `${APP_URL}/assets/images/og-image.png`;
+      const DESC     = 'Descubra eventos, shows, promoções e serviços perto de você em Vilhena – RO. Baixe o AGORA e fique por dentro da agenda cultural da cidade.';
+
+      meta('description', DESC);
+      meta('keywords',    'eventos vilhena, agenda cultural vilhena, shows rondônia, agora app, eventos rondônia, o que fazer vilhena');
+      meta('author',      'AGORA');
+      meta('robots',      'index, follow');
+
+      // Open Graph — link bonito no WhatsApp, Instagram e redes sociais
+      const setOG = (prop: string, val: string) => {
+        const q = `meta[property="${prop}"]`;
+        let t = document.querySelector(q);
+        if (!t) { t = document.createElement('meta'); t.setAttribute('property', prop); document.head.appendChild(t); }
+        t.setAttribute('content', val);
+      };
+      setOG('og:type',        'website');
+      setOG('og:site_name',   'AGORA');
+      setOG('og:title',       'AGORA · Eventos em Vilhena');
+      setOG('og:description', DESC);
+      setOG('og:image',       OG_IMAGE);
+      setOG('og:image:width',  '1200');
+      setOG('og:image:height', '630');
+      setOG('og:image:alt',   'AGORA — Eventos em Vilhena');
+      setOG('og:url',         APP_URL);
+      setOG('og:locale',      'pt_BR');
+
+      // Twitter Card
+      meta('twitter:card',        'summary_large_image');
+      meta('twitter:title',       'AGORA · Eventos em Vilhena');
+      meta('twitter:description', DESC);
+      meta('twitter:image',       OG_IMAGE);
+
+      // JSON-LD — estrutura da organização para o Google
+      const jsonLdId = 'agora-jsonld-org';
+      if (!document.getElementById(jsonLdId)) {
+        const script = document.createElement('script');
+        script.id   = jsonLdId;
+        script.type = 'application/ld+json';
+        script.text = JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type':    'WebApplication',
+          name:       'AGORA',
+          url:        APP_URL,
+          description: DESC,
+          applicationCategory: 'EntertainmentApplication',
+          operatingSystem: 'Web, Android, iOS',
+          offers: {
+            '@type': 'Offer',
+            price:   '0',
+            priceCurrency: 'BRL',
+          },
+          author: {
+            '@type':   'Organization',
+            name:      'AGORA',
+            url:       APP_URL,
+            address: {
+              '@type':           'PostalAddress',
+              addressLocality:   'Vilhena',
+              addressRegion:     'RO',
+              addressCountry:    'BR',
+            },
+          },
+        });
+        document.head.appendChild(script);
+      }
+
+      document.title = 'AGORA · Eventos em Vilhena';
     }
   }, []);
 
