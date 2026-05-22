@@ -1,24 +1,53 @@
 import { Platform } from 'react-native';
 
-export const CORES = {
-  background: '#1A0B2E',
-  backgroundCard: '#2D1B4E',
-  backgroundInput: '#1E1233',
-  roxo: '#6A32C9',
-  roxoClaro: '#8B5CF6',
-  roxoGradientStart: '#7C3AED',
-  roxoGradientEnd: '#5B21B6',
-  laranja: '#FF7A00',
-  laranjaClaro: '#FF9A33',
-  branco: '#FFFFFF',
-  cinzaClaro: '#A0A0B0',
-  cinza: '#666680',
-  preto: '#000000',
-  overlay: 'rgba(0,0,0,0.6)',
-  border: '#3D2B5E',
-  sucesso: '#22C55E',
-  erro: '#EF4444',
+// ── Tipo compartilhado ─────────────────────────────────────────────
+export type Cores = typeof CORES_ESCURO;
+
+// ── Tema escuro (padrão) ───────────────────────────────────────────
+export const CORES_ESCURO = {
+  background:          '#1A0B2E',
+  backgroundCard:      '#2D1B4E',
+  backgroundInput:     '#1E1233',
+  roxo:                '#6A32C9',
+  roxoClaro:           '#8B5CF6',
+  roxoGradientStart:   '#7C3AED',
+  roxoGradientEnd:     '#5B21B6',
+  laranja:             '#FF7A00',
+  laranjaClaro:        '#FF9A33',
+  branco:              '#FFFFFF',
+  cinzaClaro:          '#A0A0B0',
+  cinza:               '#666680',
+  preto:               '#000000',
+  overlay:             'rgba(0,0,0,0.6)',
+  border:              '#3D2B5E',
+  sucesso:             '#22C55E',
+  erro:                '#EF4444',
 };
+
+// ── Tema claro ─────────────────────────────────────────────────────
+export const CORES_CLARO: Cores = {
+  background:          '#F4F0FA',
+  backgroundCard:      '#FFFFFF',
+  backgroundInput:     '#EBE5F5',
+  roxo:                '#6A32C9',
+  roxoClaro:           '#8B5CF6',
+  roxoGradientStart:   '#7C3AED',
+  roxoGradientEnd:     '#5B21B6',
+  laranja:             '#E06000',
+  laranjaClaro:        '#FF7A00',
+  branco:              '#12062A',   // texto principal → escuro
+  cinzaClaro:          '#4A3875',   // texto secundário
+  cinza:               '#7A6A9A',   // texto terciário / placeholder
+  preto:               '#F4F0FA',   // invertido
+  overlay:             'rgba(0,0,0,0.4)',
+  border:              '#CCC0E8',
+  sucesso:             '#16A34A',
+  erro:                '#DC2626',
+};
+
+// Re-exporta CORES como alias do tema escuro para retrocompatibilidade
+// (componentes que ainda importam CORES diretamente continuam funcionando)
+export const CORES = CORES_ESCURO;
 
 export const SPACING = {
   xs: 4,

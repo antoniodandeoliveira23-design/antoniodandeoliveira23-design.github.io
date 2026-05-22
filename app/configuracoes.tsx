@@ -13,13 +13,13 @@ import {
 import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
 import { supabase } from '@/services/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTema } from '@/contexts/TemaContext';
 
 export default function ConfiguracoesScreen() {
   const router = useRouter();
   const { logout } = useAuth();
-  const [notificacoes, setNotificacoes] = useState(true);
+  const { modoEscuro, notificacoesAtivas, cores, toggleTema, toggleNotificacoes } = useTema();
   const [localizacao, setLocalizacao] = useState(true);
-  const [modoEscuro, setModoEscuro] = useState(true);
   const [excluindo, setExcluindo] = useState(false);
 
   async function excluirConta() {
@@ -90,100 +90,114 @@ export default function ConfiguracoesScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+    <ScrollView style={[styles.container, { backgroundColor: cores.background }]} contentContainerStyle={styles.scrollContent}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={CORES.branco} />
+          <Ionicons name="arrow-back" size={24} color={cores.branco} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Configurações</Text>
+        <Text style={[styles.headerTitle, { color: cores.branco }]}>Configurações</Text>
         <View style={{ width: 24 }} />
       </View>
 
-      {/* Notificações */}
-      <Text style={styles.sectionTitle}>Geral</Text>
-      <View style={styles.card}>
+      {/* Geral */}
+      <Text style={[styles.sectionTitle, { color: cores.cinzaClaro }]}>Geral</Text>
+      <View style={[styles.card, { backgroundColor: cores.backgroundCard }]}>
         <View style={styles.settingRow}>
-          <Ionicons name="notifications-outline" size={20} color={CORES.branco} />
+          <Ionicons name="notifications-outline" size={20} color={cores.branco} />
           <View style={styles.settingInfo}>
-            <Text style={styles.settingLabel}>Notificações push</Text>
-            <Text style={styles.settingDesc}>Receba alertas de eventos próximos</Text>
+            <Text style={[styles.settingLabel, { color: cores.branco }]}>Notificações push</Text>
+            <Text style={[styles.settingDesc, { color: cores.cinza }]}>
+              {notificacoesAtivas ? 'Receba alertas de eventos próximos' : 'Notificações desativadas'}
+            </Text>
           </View>
-          <Switch value={notificacoes} onValueChange={setNotificacoes} trackColor={{ false: CORES.border, true: CORES.roxo }} thumbColor={notificacoes ? CORES.laranja : CORES.cinza} />
+          <Switch
+            value={notificacoesAtivas}
+            onValueChange={toggleNotificacoes}
+            trackColor={{ false: cores.border, true: cores.roxo }}
+            thumbColor={notificacoesAtivas ? cores.laranja : cores.cinza}
+          />
         </View>
 
-        <View style={styles.divider} />
+        <View style={[styles.divider, { backgroundColor: cores.border }]} />
 
         <View style={styles.settingRow}>
-          <Ionicons name="location-outline" size={20} color={CORES.branco} />
+          <Ionicons name="location-outline" size={20} color={cores.branco} />
           <View style={styles.settingInfo}>
-            <Text style={styles.settingLabel}>Localização</Text>
-            <Text style={styles.settingDesc}>Permite buscar eventos na sua região</Text>
+            <Text style={[styles.settingLabel, { color: cores.branco }]}>Localização</Text>
+            <Text style={[styles.settingDesc, { color: cores.cinza }]}>Permite buscar eventos na sua região</Text>
           </View>
-          <Switch value={localizacao} onValueChange={setLocalizacao} trackColor={{ false: CORES.border, true: CORES.roxo }} thumbColor={localizacao ? CORES.laranja : CORES.cinza} />
+          <Switch value={localizacao} onValueChange={setLocalizacao} trackColor={{ false: cores.border, true: cores.roxo }} thumbColor={localizacao ? cores.laranja : cores.cinza} />
         </View>
 
-        <View style={styles.divider} />
+        <View style={[styles.divider, { backgroundColor: cores.border }]} />
 
         <View style={styles.settingRow}>
-          <Ionicons name="moon-outline" size={20} color={CORES.branco} />
+          <Ionicons name={modoEscuro ? 'moon' : 'sunny'} size={20} color={cores.branco} />
           <View style={styles.settingInfo}>
-            <Text style={styles.settingLabel}>Modo escuro</Text>
-            <Text style={styles.settingDesc}>Tema escuro ativado</Text>
+            <Text style={[styles.settingLabel, { color: cores.branco }]}>Modo escuro</Text>
+            <Text style={[styles.settingDesc, { color: cores.cinza }]}>
+              {modoEscuro ? 'Tema escuro ativado' : 'Tema claro ativado'}
+            </Text>
           </View>
-          <Switch value={modoEscuro} onValueChange={setModoEscuro} trackColor={{ false: CORES.border, true: CORES.roxo }} thumbColor={modoEscuro ? CORES.laranja : CORES.cinza} />
+          <Switch
+            value={modoEscuro}
+            onValueChange={toggleTema}
+            trackColor={{ false: cores.border, true: cores.roxo }}
+            thumbColor={modoEscuro ? cores.laranja : cores.cinza}
+          />
         </View>
       </View>
 
       {/* Privacidade */}
-      <Text style={styles.sectionTitle}>Privacidade</Text>
-      <View style={styles.card}>
+      <Text style={[styles.sectionTitle, { color: cores.cinzaClaro }]}>Privacidade</Text>
+      <View style={[styles.card, { backgroundColor: cores.backgroundCard }]}>
         <TouchableOpacity style={styles.settingRow} onPress={() => router.push('/politica-privacidade')}>
-          <Ionicons name="shield-outline" size={20} color={CORES.branco} />
+          <Ionicons name="shield-outline" size={20} color={cores.branco} />
           <View style={styles.settingInfo}>
-            <Text style={styles.settingLabel}>Política de privacidade</Text>
+            <Text style={[styles.settingLabel, { color: cores.branco }]}>Política de privacidade</Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={CORES.cinza} />
+          <Ionicons name="chevron-forward" size={18} color={cores.cinza} />
         </TouchableOpacity>
 
-        <View style={styles.divider} />
+        <View style={[styles.divider, { backgroundColor: cores.border }]} />
 
         <TouchableOpacity style={styles.settingRow} onPress={() => router.push('/termos-de-servico')}>
-          <Ionicons name="document-text-outline" size={20} color={CORES.branco} />
+          <Ionicons name="document-text-outline" size={20} color={cores.branco} />
           <View style={styles.settingInfo}>
-            <Text style={styles.settingLabel}>Termos de serviço</Text>
+            <Text style={[styles.settingLabel, { color: cores.branco }]}>Termos de serviço</Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={CORES.cinza} />
+          <Ionicons name="chevron-forward" size={18} color={cores.cinza} />
         </TouchableOpacity>
       </View>
 
       {/* Sobre */}
-      <Text style={styles.sectionTitle}>Sobre</Text>
-      <View style={styles.card}>
+      <Text style={[styles.sectionTitle, { color: cores.cinzaClaro }]}>Sobre</Text>
+      <View style={[styles.card, { backgroundColor: cores.backgroundCard }]}>
         <View style={styles.settingRow}>
-          <Ionicons name="information-circle-outline" size={20} color={CORES.branco} />
+          <Ionicons name="information-circle-outline" size={20} color={cores.branco} />
           <View style={styles.settingInfo}>
-            <Text style={styles.settingLabel}>Versão</Text>
-            <Text style={styles.settingDesc}>1.0.0</Text>
+            <Text style={[styles.settingLabel, { color: cores.branco }]}>Versão</Text>
+            <Text style={[styles.settingDesc, { color: cores.cinza }]}>1.0.0</Text>
           </View>
         </View>
       </View>
 
       {/* Danger zone */}
-      <Text style={[styles.sectionTitle, { color: CORES.erro }]}>Zona de perigo</Text>
-      <View style={[styles.card, { borderWidth: 1, borderColor: CORES.erro + '44' }]}>
+      <Text style={[styles.sectionTitle, { color: cores.erro }]}>Zona de perigo</Text>
+      <View style={[styles.card, { backgroundColor: cores.backgroundCard, borderWidth: 1, borderColor: cores.erro + '44' }]}>
         <TouchableOpacity
           style={styles.settingRow}
           onPress={excluirConta}
           disabled={excluindo}
         >
-          <Ionicons name="trash-outline" size={20} color={excluindo ? CORES.cinza : CORES.erro} />
+          <Ionicons name="trash-outline" size={20} color={excluindo ? cores.cinza : cores.erro} />
           <View style={styles.settingInfo}>
-            <Text style={[styles.settingLabel, { color: excluindo ? CORES.cinza : CORES.erro }]}>
+            <Text style={[styles.settingLabel, { color: excluindo ? cores.cinza : cores.erro }]}>
               {excluindo ? 'Excluindo...' : 'Excluir minha conta'}
             </Text>
-            <Text style={styles.settingDesc}>Esta ação é irreversível</Text>
+            <Text style={[styles.settingDesc, { color: cores.cinza }]}>Esta ação é irreversível</Text>
           </View>
-          {!excluindo && <Ionicons name="chevron-forward" size={18} color={CORES.erro} />}
+          {!excluindo && <Ionicons name="chevron-forward" size={18} color={cores.erro} />}
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -191,20 +205,18 @@ export default function ConfiguracoesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: CORES.background, paddingTop: 50 },
+  container:     { flex: 1, paddingTop: 50 },
   scrollContent: { paddingHorizontal: SPACING.lg, paddingBottom: 40 },
 
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.xl },
-  headerTitle: { fontSize: FONT_SIZE.xl, fontWeight: 'bold', color: CORES.branco },
+  header:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.xl },
+  headerTitle: { fontSize: FONT_SIZE.xl, fontWeight: 'bold' },
 
-  sectionTitle: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.xs, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, marginBottom: SPACING.sm, marginTop: SPACING.lg },
+  sectionTitle: { fontSize: FONT_SIZE.xs, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, marginBottom: SPACING.sm, marginTop: SPACING.lg },
 
-  card: { backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.lg, overflow: 'hidden' },
-
-  settingRow: { flexDirection: 'row', alignItems: 'center', padding: SPACING.md, gap: SPACING.md },
+  card:        { borderRadius: RADIUS.lg, overflow: 'hidden' },
+  settingRow:  { flexDirection: 'row', alignItems: 'center', padding: SPACING.md, gap: SPACING.md },
   settingInfo: { flex: 1 },
-  settingLabel: { color: CORES.branco, fontSize: FONT_SIZE.sm, fontWeight: '500' },
-  settingDesc: { color: CORES.cinza, fontSize: FONT_SIZE.xs, marginTop: 2 },
-
-  divider: { height: 1, backgroundColor: CORES.border, marginHorizontal: SPACING.md },
+  settingLabel: { fontSize: FONT_SIZE.sm, fontWeight: '500' },
+  settingDesc:  { fontSize: FONT_SIZE.xs, marginTop: 2 },
+  divider:      { height: 1, marginHorizontal: SPACING.md },
 });

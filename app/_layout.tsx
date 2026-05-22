@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { ActivityIndicator, Platform, View } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { TemaProvider, useTema } from '@/contexts/TemaContext';
 import { EventosProvider } from '@/contexts/EventosContext';
 import { ChatProvider } from '@/contexts/ChatContext';
 import { NotificacoesProvider } from '@/contexts/NotificacoesContext';
@@ -15,18 +16,19 @@ SplashScreen.preventAutoHideAsync();
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { signed, loading, logout, user } = useAuth();
+  const { notificacoesAtivas, cores, modoEscuro } = useTema();
   const segments = useSegments();
   const router = useRouter();
 
-  // Registra push token ao logar (apenas nativo)
+  // Registra push token ao logar — respeita preferência do usuário
   useEffect(() => {
-    if (signed && user?.id && Platform.OS !== 'web') {
+    if (signed && user?.id && Platform.OS !== 'web' && notificacoesAtivas) {
       registrarPushToken(user.id).catch(() => {});
     }
     if (!signed && user?.id) {
       desativarPushTokens(user.id).catch(() => {});
     }
-  }, [signed, user?.id]);
+  }, [signed, user?.id, notificacoesAtivas]);
 
   // A07 — Session timeout: desloga após 30min de inatividade
   useEffect(() => {
@@ -67,8 +69,8 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: CORES.background, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={CORES.roxo} />
+      <View style={{ flex: 1, backgroundColor: cores.background, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={cores.roxo} />
       </View>
     );
   }
@@ -77,6 +79,8 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 }
 
 function RootLayoutContent() {
+  const { modoEscuro, cores } = useTema();
+
   useEffect(() => {
     SplashScreen.hideAsync();
   }, []);
@@ -186,8 +190,8 @@ function RootLayoutContent() {
 
   return (
     <AuthGuard>
-      <StatusBar style="light" backgroundColor="#1A0B2E" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#1A0B2E' } }}>
+      <StatusBar style={modoEscuro ? 'light' : 'dark'} backgroundColor={cores.background} />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: cores.background } }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="login" />
@@ -218,13 +222,15 @@ function RootLayoutContent() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <EventosProvider>
-        <ChatProvider>
-          <NotificacoesProvider>
-            <RootLayoutContent />
-          </NotificacoesProvider>
-        </ChatProvider>
-      </EventosProvider>
+      <TemaProvider>
+        <EventosProvider>
+          <ChatProvider>
+            <NotificacoesProvider>
+              <RootLayoutContent />
+            </NotificacoesProvider>
+          </ChatProvider>
+        </EventosProvider>
+      </TemaProvider>
     </AuthProvider>
   );
 }
