@@ -14,7 +14,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
+import { FONT_SIZE, RADIUS, SPACING, type Cores } from '@/constants/theme';
+import { useCores } from '@/contexts/TemaContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { validarSenha, validarCNPJ, formatarCNPJ } from '@/services/seguranca';
 import type { TipoConta, Genero } from '@/types';
@@ -22,6 +23,8 @@ import type { TipoConta, Genero } from '@/types';
 type Passo = 1 | 2 | 3;
 
 export default function Register() {
+  const cores = useCores();
+  const styles = createStyles(cores);
   const router = useRouter();
   const { register, loginSocial, loading } = useAuth();
 
@@ -161,37 +164,37 @@ export default function Register() {
         <View style={styles.halfField}>
           <Text style={styles.label}>Primeiro nome</Text>
           <View style={styles.inputWrapper}>
-            <Ionicons name="person-outline" size={18} color={CORES.cinza} style={styles.inputIcon} />
-            <TextInput style={styles.input} placeholder="Primeiro nome" placeholderTextColor={CORES.cinza} value={nome} onChangeText={setNome} />
+            <Ionicons name="person-outline" size={18} color={cores.cinza} style={styles.inputIcon} />
+            <TextInput style={styles.input} placeholder="Primeiro nome" placeholderTextColor={cores.cinza} value={nome} onChangeText={setNome} />
           </View>
         </View>
         <View style={styles.halfField}>
           <Text style={styles.label}>Sobrenome</Text>
           <View style={styles.inputWrapper}>
-            <Ionicons name="person-outline" size={18} color={CORES.cinza} style={styles.inputIcon} />
-            <TextInput style={styles.input} placeholder="Sobrenome" placeholderTextColor={CORES.cinza} value={sobrenome} onChangeText={setSobrenome} />
+            <Ionicons name="person-outline" size={18} color={cores.cinza} style={styles.inputIcon} />
+            <TextInput style={styles.input} placeholder="Sobrenome" placeholderTextColor={cores.cinza} value={sobrenome} onChangeText={setSobrenome} />
           </View>
         </View>
       </View>
 
       <Text style={styles.label}>Nome de usuário</Text>
       <View style={styles.inputWrapper}>
-        <Ionicons name="at-outline" size={18} color={CORES.cinza} style={styles.inputIcon} />
-        <TextInput style={styles.input} placeholder="Nome de usuário" placeholderTextColor={CORES.cinza} value={username} onChangeText={setUsername} autoCapitalize="none" />
+        <Ionicons name="at-outline" size={18} color={cores.cinza} style={styles.inputIcon} />
+        <TextInput style={styles.input} placeholder="Nome de usuário" placeholderTextColor={cores.cinza} value={username} onChangeText={setUsername} autoCapitalize="none" />
       </View>
 
       <Text style={styles.label}>E-mail</Text>
       <View style={styles.inputWrapper}>
-        <Ionicons name="mail-outline" size={18} color={CORES.cinza} style={styles.inputIcon} />
-        <TextInput style={styles.input} placeholder="E-mail" placeholderTextColor={CORES.cinza} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+        <Ionicons name="mail-outline" size={18} color={cores.cinza} style={styles.inputIcon} />
+        <TextInput style={styles.input} placeholder="E-mail" placeholderTextColor={cores.cinza} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
       </View>
 
       <Text style={styles.label}>Senha</Text>
       <View style={styles.inputWrapper}>
-        <Ionicons name="lock-closed-outline" size={18} color={CORES.cinza} style={styles.inputIcon} />
-        <TextInput style={styles.input} placeholder="Senha" placeholderTextColor={CORES.cinza} value={senha} onChangeText={setSenha} secureTextEntry={!senhaVisivel} />
+        <Ionicons name="lock-closed-outline" size={18} color={cores.cinza} style={styles.inputIcon} />
+        <TextInput style={styles.input} placeholder="Senha" placeholderTextColor={cores.cinza} value={senha} onChangeText={setSenha} secureTextEntry={!senhaVisivel} />
         <TouchableOpacity onPress={() => setSenhaVisivel(!senhaVisivel)}>
-          <Ionicons name={senhaVisivel ? 'eye-outline' : 'eye-off-outline'} size={18} color={CORES.cinza} />
+          <Ionicons name={senhaVisivel ? 'eye-outline' : 'eye-off-outline'} size={18} color={cores.cinza} />
         </TouchableOpacity>
       </View>
 
@@ -206,20 +209,20 @@ export default function Register() {
                   styles.forcaBarra,
                   i < forcaSenha.pontuacao && {
                     backgroundColor:
-                      forcaSenha.pontuacao <= 1 ? CORES.erro
+                      forcaSenha.pontuacao <= 1 ? cores.erro
                       : forcaSenha.pontuacao === 2 ? '#F59E0B'
                       : forcaSenha.pontuacao === 3 ? '#3B82F6'
-                      : CORES.sucesso,
+                      : cores.sucesso,
                   },
                 ]}
               />
             ))}
           </View>
           <Text style={[styles.forcaLabel, {
-            color: forcaSenha.pontuacao <= 1 ? CORES.erro
+            color: forcaSenha.pontuacao <= 1 ? cores.erro
               : forcaSenha.pontuacao === 2 ? '#F59E0B'
               : forcaSenha.pontuacao === 3 ? '#3B82F6'
-              : CORES.sucesso,
+              : cores.sucesso,
           }]}>
             {forcaSenha.forca === 'fraca' ? 'Fraca'
               : forcaSenha.forca === 'media' ? 'Média'
@@ -242,36 +245,36 @@ export default function Register() {
         style={[styles.cardOpcao, tipoConta === 'pf' && styles.cardOpcaoAtivo]}
         onPress={() => setTipoConta('pf')}
       >
-        <Ionicons name="person" size={28} color={tipoConta === 'pf' ? CORES.laranja : CORES.roxo} />
+        <Ionicons name="person" size={28} color={tipoConta === 'pf' ? cores.laranja : cores.roxo} />
         <View style={styles.cardOpcaoInfo}>
           <Text style={styles.cardOpcaoTitulo}>Pessoa Física</Text>
           <Text style={styles.cardOpcaoDesc}>Explore eventos, salve favoritos e crie convites simples.</Text>
         </View>
-        {tipoConta === 'pf' && <Ionicons name="checkmark-circle" size={24} color={CORES.laranja} />}
+        {tipoConta === 'pf' && <Ionicons name="checkmark-circle" size={24} color={cores.laranja} />}
       </TouchableOpacity>
 
       <TouchableOpacity
         style={[styles.cardOpcao, tipoConta === 'pj' && styles.cardOpcaoAtivo]}
         onPress={() => setTipoConta('pj')}
       >
-        <MaterialCommunityIcons name="office-building" size={28} color={tipoConta === 'pj' ? CORES.laranja : CORES.roxo} />
+        <MaterialCommunityIcons name="office-building" size={28} color={tipoConta === 'pj' ? cores.laranja : cores.roxo} />
         <View style={styles.cardOpcaoInfo}>
           <Text style={styles.cardOpcaoTitulo}>Empresa</Text>
           <Text style={styles.cardOpcaoDesc}>Divulgue eventos, promoções e anúncios comerciais.</Text>
         </View>
-        {tipoConta === 'pj' && <Ionicons name="checkmark-circle" size={24} color={CORES.laranja} />}
+        {tipoConta === 'pj' && <Ionicons name="checkmark-circle" size={24} color={cores.laranja} />}
       </TouchableOpacity>
 
       <TouchableOpacity
         style={[styles.cardOpcao, tipoConta === 'gov' && styles.cardOpcaoAtivo]}
         onPress={() => setTipoConta('gov')}
       >
-        <Ionicons name="shield-checkmark" size={28} color={tipoConta === 'gov' ? CORES.laranja : CORES.roxo} />
+        <Ionicons name="shield-checkmark" size={28} color={tipoConta === 'gov' ? cores.laranja : cores.roxo} />
         <View style={styles.cardOpcaoInfo}>
           <Text style={styles.cardOpcaoTitulo}>Órgão Público</Text>
           <Text style={styles.cardOpcaoDesc}>Publique ações institucionais e campanhas públicas.</Text>
         </View>
-        {tipoConta === 'gov' && <Ionicons name="checkmark-circle" size={24} color={CORES.laranja} />}
+        {tipoConta === 'gov' && <Ionicons name="checkmark-circle" size={24} color={cores.laranja} />}
       </TouchableOpacity>
     </>
   );
@@ -283,12 +286,12 @@ export default function Register() {
         <>
           <Text style={styles.passoTitulo}>Dados da Empresa</Text>
           <Text style={styles.label}>CNPJ</Text>
-          <View style={[styles.inputWrapper, cnpj && !validarCNPJ(cnpj).valido && cnpj.replace(/\D/g,'').length === 14 && { borderWidth: 1, borderColor: CORES.erro }]}>
-            <MaterialCommunityIcons name="file-document-outline" size={18} color={CORES.cinza} style={styles.inputIcon} />
+          <View style={[styles.inputWrapper, cnpj && !validarCNPJ(cnpj).valido && cnpj.replace(/\D/g,'').length === 14 && { borderWidth: 1, borderColor: cores.erro }]}>
+            <MaterialCommunityIcons name="file-document-outline" size={18} color={cores.cinza} style={styles.inputIcon} />
             <TextInput
               style={styles.input}
               placeholder="00.000.000/0000-00"
-              placeholderTextColor={CORES.cinza}
+              placeholderTextColor={cores.cinza}
               value={cnpj}
               onChangeText={(t) => setCnpj(formatarCNPJ(t))}
               keyboardType="number-pad"
@@ -298,12 +301,12 @@ export default function Register() {
               <Ionicons
                 name={validarCNPJ(cnpj).valido ? 'checkmark-circle' : 'close-circle'}
                 size={18}
-                color={validarCNPJ(cnpj).valido ? CORES.sucesso : CORES.erro}
+                color={validarCNPJ(cnpj).valido ? cores.sucesso : cores.erro}
               />
             )}
           </View>
           {cnpj.replace(/\D/g,'').length === 14 && !validarCNPJ(cnpj).valido && (
-            <Text style={[styles.hint, { color: CORES.erro }]}>{validarCNPJ(cnpj).erro}</Text>
+            <Text style={[styles.hint, { color: cores.erro }]}>{validarCNPJ(cnpj).erro}</Text>
           )}
           <Text style={styles.hint}>Necessário para publicar eventos comerciais (R5).</Text>
         </>
@@ -330,7 +333,7 @@ export default function Register() {
               <Text style={styles.generoTexto}>
                 {g === 'feminino' ? 'Feminino' : g === 'masculino' ? 'Masculino' : g === 'outro' ? 'Outro' : 'Prefiro não dizer'}
               </Text>
-              {genero === g && <Ionicons name="checkmark" size={18} color={CORES.laranja} />}
+              {genero === g && <Ionicons name="checkmark" size={18} color={cores.laranja} />}
             </TouchableOpacity>
           ))}
         </>
@@ -345,19 +348,19 @@ export default function Register() {
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={[styles.scroll, { justifyContent: 'center' }]} keyboardShouldPersistTaps="handled">
           <View style={{ alignItems: 'center', width: '100%', maxWidth: 400 }}>
-            <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: CORES.roxo, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.xl }}>
-              <Ionicons name="mail" size={36} color={CORES.branco} />
+            <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: cores.roxo, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.xl }}>
+              <Ionicons name="mail" size={36} color={cores.branco} />
             </View>
-            <Text style={{ fontSize: FONT_SIZE.xl, fontWeight: 'bold', color: CORES.branco, textAlign: 'center', marginBottom: SPACING.md }}>
+            <Text style={{ fontSize: FONT_SIZE.xl, fontWeight: 'bold', color: cores.branco, textAlign: 'center', marginBottom: SPACING.md }}>
               Confirme seu e-mail
             </Text>
-            <Text style={{ fontSize: FONT_SIZE.sm, color: CORES.cinzaClaro, textAlign: 'center', lineHeight: 22, marginBottom: SPACING.xs }}>
+            <Text style={{ fontSize: FONT_SIZE.sm, color: cores.cinzaClaro, textAlign: 'center', lineHeight: 22, marginBottom: SPACING.xs }}>
               Enviamos um link de ativação para:
             </Text>
-            <Text style={{ fontSize: FONT_SIZE.md, color: CORES.branco, fontWeight: 'bold', textAlign: 'center', marginBottom: SPACING.lg }}>
+            <Text style={{ fontSize: FONT_SIZE.md, color: cores.branco, fontWeight: 'bold', textAlign: 'center', marginBottom: SPACING.lg }}>
               {email.trim()}
             </Text>
-            <Text style={{ fontSize: FONT_SIZE.xs, color: CORES.cinzaClaro, textAlign: 'center', lineHeight: 20, marginBottom: SPACING.xl }}>
+            <Text style={{ fontSize: FONT_SIZE.xs, color: cores.cinzaClaro, textAlign: 'center', lineHeight: 20, marginBottom: SPACING.xl }}>
               Clique no link do e-mail para ativar sua conta. Verifique também a pasta de spam.
             </Text>
             <TouchableOpacity style={styles.ctaBtn} onPress={() => router.replace('/login')}>
@@ -375,7 +378,7 @@ export default function Register() {
         {/* Header com voltar + indicador de passo */}
         <View style={styles.header}>
           <TouchableOpacity onPress={voltar}>
-            <Ionicons name="arrow-back" size={24} color={CORES.branco} />
+            <Ionicons name="arrow-back" size={24} color={cores.branco} />
           </TouchableOpacity>
           <View style={styles.stepRow}>
             {[1, 2, 3].map((s) => (
@@ -420,61 +423,63 @@ export default function Register() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: CORES.background },
-  scroll: { flexGrow: 1, alignItems: 'center', paddingHorizontal: SPACING.lg, paddingTop: 50, paddingBottom: 40 },
-  header: { flexDirection: 'row', alignItems: 'center', width: '100%', maxWidth: 400, marginBottom: SPACING.xl, gap: SPACING.md },
-  stepRow: { flexDirection: 'row', gap: 6, flex: 1 },
-  stepLabel: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.xs },
-  dot: { height: 4, borderRadius: 2 },
-  dotActive: { width: 32, backgroundColor: CORES.laranja },
-  dotDone: { width: 32, backgroundColor: CORES.roxo },
-  dotInactive: { width: 32, backgroundColor: CORES.border },
+function createStyles(cores: Cores) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: cores.background },
+    scroll: { flexGrow: 1, alignItems: 'center', paddingHorizontal: SPACING.lg, paddingTop: 50, paddingBottom: 40 },
+    header: { flexDirection: 'row', alignItems: 'center', width: '100%', maxWidth: 400, marginBottom: SPACING.xl, gap: SPACING.md },
+    stepRow: { flexDirection: 'row', gap: 6, flex: 1 },
+    stepLabel: { color: cores.cinzaClaro, fontSize: FONT_SIZE.xs },
+    dot: { height: 4, borderRadius: 2 },
+    dotActive: { width: 32, backgroundColor: cores.laranja },
+    dotDone: { width: 32, backgroundColor: cores.roxo },
+    dotInactive: { width: 32, backgroundColor: cores.border },
 
-  // Passo 2 - cards
-  passoTitulo: { fontSize: FONT_SIZE.xl, fontWeight: 'bold', color: CORES.branco, alignSelf: 'flex-start', maxWidth: 400, marginBottom: SPACING.sm },
-  passoSubtitulo: { fontSize: FONT_SIZE.sm, color: CORES.cinzaClaro, alignSelf: 'flex-start', maxWidth: 400, marginBottom: SPACING.lg },
-  cardOpcao: { flexDirection: 'row', alignItems: 'center', backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.lg, padding: SPACING.md, width: '100%', maxWidth: 400, marginBottom: SPACING.md, gap: SPACING.md, borderWidth: 2, borderColor: 'transparent' },
-  cardOpcaoAtivo: { borderColor: CORES.laranja },
-  cardOpcaoInfo: { flex: 1 },
-  cardOpcaoTitulo: { color: CORES.branco, fontSize: FONT_SIZE.md, fontWeight: 'bold' },
-  cardOpcaoDesc: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.xs, marginTop: 4 },
+    // Passo 2 - cards
+    passoTitulo: { fontSize: FONT_SIZE.xl, fontWeight: 'bold', color: cores.branco, alignSelf: 'flex-start', maxWidth: 400, marginBottom: SPACING.sm },
+    passoSubtitulo: { fontSize: FONT_SIZE.sm, color: cores.cinzaClaro, alignSelf: 'flex-start', maxWidth: 400, marginBottom: SPACING.lg },
+    cardOpcao: { flexDirection: 'row', alignItems: 'center', backgroundColor: cores.backgroundCard, borderRadius: RADIUS.lg, padding: SPACING.md, width: '100%', maxWidth: 400, marginBottom: SPACING.md, gap: SPACING.md, borderWidth: 2, borderColor: 'transparent' },
+    cardOpcaoAtivo: { borderColor: cores.laranja },
+    cardOpcaoInfo: { flex: 1 },
+    cardOpcaoTitulo: { color: cores.branco, fontSize: FONT_SIZE.md, fontWeight: 'bold' },
+    cardOpcaoDesc: { color: cores.cinzaClaro, fontSize: FONT_SIZE.xs, marginTop: 4 },
 
-  // Passo 3 - gênero
-  generoOpcao: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.sm, padding: SPACING.md, width: '100%', maxWidth: 400, marginBottom: SPACING.sm, borderWidth: 1, borderColor: 'transparent' },
-  generoOpcaoAtivo: { borderColor: CORES.laranja },
-  generoTexto: { color: CORES.branco, fontSize: FONT_SIZE.sm },
-  infoText: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm, lineHeight: 22, maxWidth: 400, marginBottom: SPACING.lg },
+    // Passo 3 - gênero
+    generoOpcao: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: cores.backgroundCard, borderRadius: RADIUS.sm, padding: SPACING.md, width: '100%', maxWidth: 400, marginBottom: SPACING.sm, borderWidth: 1, borderColor: 'transparent' },
+    generoOpcaoAtivo: { borderColor: cores.laranja },
+    generoTexto: { color: cores.branco, fontSize: FONT_SIZE.sm },
+    infoText: { color: cores.cinzaClaro, fontSize: FONT_SIZE.sm, lineHeight: 22, maxWidth: 400, marginBottom: SPACING.lg },
 
-  // Social
-  socialLabel: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm, marginBottom: SPACING.md, alignSelf: 'flex-start', maxWidth: 400, width: '100%' },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', width: '100%', maxWidth: 400, marginBottom: SPACING.lg },
-  dividerLine: { flex: 1, height: 1, backgroundColor: CORES.border },
-  dividerText: { color: CORES.cinzaClaro, marginHorizontal: SPACING.md, fontSize: FONT_SIZE.sm },
+    // Social
+    socialLabel: { color: cores.cinzaClaro, fontSize: FONT_SIZE.sm, marginBottom: SPACING.md, alignSelf: 'flex-start', maxWidth: 400, width: '100%' },
+    dividerRow: { flexDirection: 'row', alignItems: 'center', width: '100%', maxWidth: 400, marginBottom: SPACING.lg },
+    dividerLine: { flex: 1, height: 1, backgroundColor: cores.border },
+    dividerText: { color: cores.cinzaClaro, marginHorizontal: SPACING.md, fontSize: FONT_SIZE.sm },
 
-  // Form
-  rowFields: { flexDirection: 'row', gap: SPACING.md, width: '100%', maxWidth: 400 },
-  halfField: { flex: 1 },
-  label: { color: CORES.branco, fontSize: FONT_SIZE.sm, fontWeight: '600', alignSelf: 'flex-start', maxWidth: 400, width: '100%', marginBottom: SPACING.xs },
-  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: CORES.backgroundInput, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.md, width: '100%', maxWidth: 400, height: 48, marginBottom: SPACING.md },
-  inputIcon: { marginRight: SPACING.sm },
-  input: { flex: 1, color: CORES.branco, fontSize: FONT_SIZE.sm },
-  hint: { color: CORES.cinza, fontSize: FONT_SIZE.xs, alignSelf: 'flex-start', maxWidth: 400, marginBottom: SPACING.md, marginTop: 2 },
-  forcaContainer: { flexDirection: 'row', alignItems: 'center', width: '100%', maxWidth: 400, gap: SPACING.sm, marginBottom: SPACING.xs, marginTop: -8 },
-  forcaBarras: { flexDirection: 'row', gap: 4, flex: 1 },
-  forcaBarra: { flex: 1, height: 4, borderRadius: 2, backgroundColor: CORES.border },
-  forcaLabel: { fontSize: FONT_SIZE.xs, fontWeight: '600', minWidth: 60, textAlign: 'right' },
-  erroText: { color: CORES.erro, fontSize: FONT_SIZE.xs, alignSelf: 'flex-start', maxWidth: 400, marginBottom: SPACING.sm },
+    // Form
+    rowFields: { flexDirection: 'row', gap: SPACING.md, width: '100%', maxWidth: 400 },
+    halfField: { flex: 1 },
+    label: { color: cores.branco, fontSize: FONT_SIZE.sm, fontWeight: '600', alignSelf: 'flex-start', maxWidth: 400, width: '100%', marginBottom: SPACING.xs },
+    inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: cores.backgroundInput, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.md, width: '100%', maxWidth: 400, height: 48, marginBottom: SPACING.md },
+    inputIcon: { marginRight: SPACING.sm },
+    input: { flex: 1, color: cores.branco, fontSize: FONT_SIZE.sm },
+    hint: { color: cores.cinza, fontSize: FONT_SIZE.xs, alignSelf: 'flex-start', maxWidth: 400, marginBottom: SPACING.md, marginTop: 2 },
+    forcaContainer: { flexDirection: 'row', alignItems: 'center', width: '100%', maxWidth: 400, gap: SPACING.sm, marginBottom: SPACING.xs, marginTop: -8 },
+    forcaBarras: { flexDirection: 'row', gap: 4, flex: 1 },
+    forcaBarra: { flex: 1, height: 4, borderRadius: 2, backgroundColor: cores.border },
+    forcaLabel: { fontSize: FONT_SIZE.xs, fontWeight: '600', minWidth: 60, textAlign: 'right' },
+    erroText: { color: cores.erro, fontSize: FONT_SIZE.xs, alignSelf: 'flex-start', maxWidth: 400, marginBottom: SPACING.sm },
 
-  // CTA
-  ctaBtn: { width: '100%', maxWidth: 400, paddingVertical: 14, backgroundColor: CORES.roxo, borderRadius: RADIUS.sm, alignItems: 'center', marginTop: SPACING.md, marginBottom: SPACING.md },
-  ctaBtnDisabled: { opacity: 0.6 },
-  ctaBtnText: { color: CORES.branco, fontSize: FONT_SIZE.md, fontWeight: 'bold' },
+    // CTA
+    ctaBtn: { width: '100%', maxWidth: 400, paddingVertical: 14, backgroundColor: cores.roxo, borderRadius: RADIUS.sm, alignItems: 'center', marginTop: SPACING.md, marginBottom: SPACING.md },
+    ctaBtnDisabled: { opacity: 0.6 },
+    ctaBtnText: { color: cores.branco, fontSize: FONT_SIZE.md, fontWeight: 'bold' },
 
-  // Footer
-  terms: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.xs, textAlign: 'center', marginBottom: SPACING.md },
-  termsLink: { textDecorationLine: 'underline', color: CORES.branco },
-  footerRow: { flexDirection: 'row' },
-  footerText: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm },
-  footerLink: { color: CORES.roxoClaro, fontSize: FONT_SIZE.sm, fontWeight: '600' },
-});
+    // Footer
+    terms: { color: cores.cinzaClaro, fontSize: FONT_SIZE.xs, textAlign: 'center', marginBottom: SPACING.md },
+    termsLink: { textDecorationLine: 'underline', color: cores.branco },
+    footerRow: { flexDirection: 'row' },
+    footerText: { color: cores.cinzaClaro, fontSize: FONT_SIZE.sm },
+    footerLink: { color: cores.roxoClaro, fontSize: FONT_SIZE.sm, fontWeight: '600' },
+  });
+}

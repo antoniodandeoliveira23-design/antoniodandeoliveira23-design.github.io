@@ -8,7 +8,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
+import { FONT_SIZE, RADIUS, SPACING, type Cores } from '@/constants/theme';
+import { useCores } from '@/contexts/TemaContext';
 
 const FAQ = [
   {
@@ -38,6 +39,8 @@ const FAQ = [
 ];
 
 export default function AjudaScreen() {
+  const cores = useCores();
+  const styles = createStyles(cores);
   const router = useRouter();
   const [expandido, setExpandido] = useState<number | null>(null);
 
@@ -45,7 +48,7 @@ export default function AjudaScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={CORES.branco} />
+          <Ionicons name="arrow-back" size={24} color={cores.branco} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Ajuda</Text>
         <View style={{ width: 24 }} />
@@ -53,7 +56,7 @@ export default function AjudaScreen() {
 
       {/* Hero */}
       <View style={styles.hero}>
-        <Ionicons name="help-buoy" size={48} color={CORES.roxoClaro} />
+        <Ionicons name="help-buoy" size={48} color={cores.roxoClaro} />
         <Text style={styles.heroTitle}>Como podemos ajudar?</Text>
         <Text style={styles.heroSub}>Encontre respostas para as dúvidas mais comuns.</Text>
       </View>
@@ -68,7 +71,7 @@ export default function AjudaScreen() {
         >
           <View style={styles.faqHeader}>
             <Text style={styles.faqPergunta}>{item.pergunta}</Text>
-            <Ionicons name={expandido === i ? 'chevron-up' : 'chevron-down'} size={18} color={CORES.cinza} />
+            <Ionicons name={expandido === i ? 'chevron-up' : 'chevron-down'} size={18} color={cores.cinza} />
           </View>
           {expandido === i && (
             <Text style={styles.faqResposta}>{item.resposta}</Text>
@@ -79,7 +82,7 @@ export default function AjudaScreen() {
       {/* Contato */}
       <Text style={styles.sectionTitle}>Precisa de mais ajuda?</Text>
       <View style={styles.contatoCard}>
-        <Ionicons name="mail-outline" size={24} color={CORES.roxoClaro} />
+        <Ionicons name="mail-outline" size={24} color={cores.roxoClaro} />
         <View style={styles.contatoInfo}>
           <Text style={styles.contatoLabel}>Entre em contato</Text>
           <Text style={styles.contatoText}>suporte@agora.app</Text>
@@ -89,26 +92,28 @@ export default function AjudaScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: CORES.background, paddingTop: 50 },
-  scrollContent: { paddingHorizontal: SPACING.lg, paddingBottom: 40 },
+function createStyles(cores: Cores) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: cores.background, paddingTop: 50 },
+    scrollContent: { paddingHorizontal: SPACING.lg, paddingBottom: 40 },
 
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.lg },
-  headerTitle: { fontSize: FONT_SIZE.xl, fontWeight: 'bold', color: CORES.branco },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.lg },
+    headerTitle: { fontSize: FONT_SIZE.xl, fontWeight: 'bold', color: cores.branco },
 
-  hero: { alignItems: 'center', marginBottom: SPACING.xl },
-  heroTitle: { color: CORES.branco, fontSize: FONT_SIZE.xl, fontWeight: 'bold', marginTop: SPACING.md },
-  heroSub: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm, marginTop: SPACING.xs, textAlign: 'center' },
+    hero: { alignItems: 'center', marginBottom: SPACING.xl },
+    heroTitle: { color: cores.branco, fontSize: FONT_SIZE.xl, fontWeight: 'bold', marginTop: SPACING.md },
+    heroSub: { color: cores.cinzaClaro, fontSize: FONT_SIZE.sm, marginTop: SPACING.xs, textAlign: 'center' },
 
-  sectionTitle: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.xs, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, marginBottom: SPACING.sm, marginTop: SPACING.md },
+    sectionTitle: { color: cores.cinzaClaro, fontSize: FONT_SIZE.xs, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, marginBottom: SPACING.sm, marginTop: SPACING.md },
 
-  faqItem: { backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.md, padding: SPACING.md, marginBottom: SPACING.sm },
-  faqHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  faqPergunta: { color: CORES.branco, fontSize: FONT_SIZE.sm, fontWeight: '600', flex: 1, marginRight: SPACING.sm },
-  faqResposta: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm, lineHeight: 22, marginTop: SPACING.sm, paddingTop: SPACING.sm, borderTopWidth: 1, borderTopColor: CORES.border },
+    faqItem: { backgroundColor: cores.backgroundCard, borderRadius: RADIUS.md, padding: SPACING.md, marginBottom: SPACING.sm },
+    faqHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    faqPergunta: { color: cores.branco, fontSize: FONT_SIZE.sm, fontWeight: '600', flex: 1, marginRight: SPACING.sm },
+    faqResposta: { color: cores.cinzaClaro, fontSize: FONT_SIZE.sm, lineHeight: 22, marginTop: SPACING.sm, paddingTop: SPACING.sm, borderTopWidth: 1, borderTopColor: cores.border },
 
-  contatoCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.lg, padding: SPACING.lg, gap: SPACING.md },
-  contatoInfo: { flex: 1 },
-  contatoLabel: { color: CORES.branco, fontSize: FONT_SIZE.sm, fontWeight: '600' },
-  contatoText: { color: CORES.roxoClaro, fontSize: FONT_SIZE.sm, marginTop: 2 },
-});
+    contatoCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: cores.backgroundCard, borderRadius: RADIUS.lg, padding: SPACING.lg, gap: SPACING.md },
+    contatoInfo: { flex: 1 },
+    contatoLabel: { color: cores.branco, fontSize: FONT_SIZE.sm, fontWeight: '600' },
+    contatoText: { color: cores.roxoClaro, fontSize: FONT_SIZE.sm, marginTop: 2 },
+  });
+}

@@ -18,7 +18,8 @@ import type { DateTimePickerEvent } from '@react-native-community/datetimepicker
 const DateTimePicker = React.lazy(() =>
   import('@react-native-community/datetimepicker').then((mod) => ({ default: mod.default }))
 );
-import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
+import { FONT_SIZE, RADIUS, SPACING, type Cores } from '@/constants/theme';
+import { useCores } from '@/contexts/TemaContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEventos } from '@/contexts/EventosContext';
 import { validacaoSemantica } from '@/services/validacao-semantica';
@@ -42,6 +43,8 @@ const CATEGORIAS: { value: CategoriaEvento; label: string; icon: string }[] = [
 ];
 
 export default function CriarEvento() {
+  const cores = useCores();
+  const styles = createStyles(cores);
   const router = useRouter();
   const { user } = useAuth();
   const { criarEvento } = useEventos();
@@ -282,7 +285,7 @@ export default function CriarEvento() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color={CORES.branco} />
+            <Ionicons name="arrow-back" size={24} color={cores.branco} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Criar Evento</Text>
           <View style={{ width: 24 }} />
@@ -291,7 +294,7 @@ export default function CriarEvento() {
         {/* Tipo de conta badge */}
         {user?.tipo_conta === 'pj' && (
           <View style={styles.badge}>
-            <MaterialCommunityIcons name="office-building" size={14} color={CORES.laranja} />
+            <MaterialCommunityIcons name="office-building" size={14} color={cores.laranja} />
             <Text style={styles.badgeText}>Evento Comercial (PJ)</Text>
           </View>
         )}
@@ -314,21 +317,21 @@ export default function CriarEvento() {
         {/* Form */}
         <Text style={styles.label}>Nome do evento</Text>
         <View style={styles.inputWrapper}>
-          <TextInput style={styles.input} placeholder="Ex: Festival de Música" placeholderTextColor={CORES.cinza} value={nome} onChangeText={setNome} />
+          <TextInput style={styles.input} placeholder="Ex: Festival de Música" placeholderTextColor={cores.cinza} value={nome} onChangeText={setNome} />
         </View>
 
         <Text style={styles.label}>Descrição</Text>
         <View style={[styles.inputWrapper, { height: 100, alignItems: 'flex-start', paddingTop: 12 }]}>
-          <TextInput style={[styles.input, { textAlignVertical: 'top' }]} placeholder="Descreva o evento..." placeholderTextColor={CORES.cinza} value={descricao} onChangeText={setDescricao} multiline />
+          <TextInput style={[styles.input, { textAlignVertical: 'top' }]} placeholder="Descreva o evento..." placeholderTextColor={cores.cinza} value={descricao} onChangeText={setDescricao} multiline />
         </View>
 
         <Text style={styles.label}>Endereço</Text>
         <View style={styles.inputWrapper}>
-          <Ionicons name="location-outline" size={18} color={CORES.cinza} style={styles.inputIcon} />
+          <Ionicons name="location-outline" size={18} color={cores.cinza} style={styles.inputIcon} />
           <TextInput
             style={styles.input}
             placeholder="Av. Brasil, 123 - Vilhena, RO"
-            placeholderTextColor={CORES.cinza}
+            placeholderTextColor={cores.cinza}
             value={local}
             onChangeText={(text) => { setLocal(text); geocodadoPorNominatim.current = false; }}
             onFocus={() => {
@@ -347,7 +350,7 @@ export default function CriarEvento() {
         {/* ── Web: input nativo HTML ─────────────────────────── */}
         {Platform.OS === 'web' ? (
           <View style={styles.inputWrapper}>
-            <Ionicons name="calendar-outline" size={18} color={CORES.cinza} style={styles.inputIcon} />
+            <Ionicons name="calendar-outline" size={18} color={cores.cinza} style={styles.inputIcon} />
             <input
               type="datetime-local"
               value={dataInicioWeb}
@@ -367,11 +370,11 @@ export default function CriarEvento() {
         ) : (
           /* ── iOS / Android: DateTimePicker nativo ─────────── */
           <TouchableOpacity style={styles.inputWrapper} onPress={abrirPickerData} activeOpacity={0.8}>
-            <Ionicons name="calendar-outline" size={18} color={CORES.cinza} style={styles.inputIcon} />
-            <Text style={[styles.input, !dataObj && { color: CORES.cinza }]}>
+            <Ionicons name="calendar-outline" size={18} color={cores.cinza} style={styles.inputIcon} />
+            <Text style={[styles.input, !dataObj && { color: cores.cinza }]}>
               {dataFormatada}
             </Text>
-            <Ionicons name="chevron-down" size={16} color={CORES.cinza} />
+            <Ionicons name="chevron-down" size={16} color={cores.cinza} />
           </TouchableOpacity>
         )}
 
@@ -435,7 +438,7 @@ export default function CriarEvento() {
               style={[styles.catChip, categoria === cat.value && styles.catChipAtivo]}
               onPress={() => setCategoria(cat.value)}
             >
-              <Ionicons name={cat.icon as any} size={16} color={categoria === cat.value ? CORES.laranja : CORES.cinza} />
+              <Ionicons name={cat.icon as any} size={16} color={categoria === cat.value ? cores.laranja : cores.cinza} />
               <Text style={[styles.catChipText, categoria === cat.value && styles.catChipTextAtivo]}>
                 {cat.label}
               </Text>
@@ -452,8 +455,8 @@ export default function CriarEvento() {
           <Switch
             value={exclusivoMulheres}
             onValueChange={setExclusivoMulheres}
-            trackColor={{ false: CORES.border, true: CORES.roxo }}
-            thumbColor={exclusivoMulheres ? CORES.laranja : CORES.cinza}
+            trackColor={{ false: cores.border, true: cores.roxo }}
+            thumbColor={exclusivoMulheres ? cores.laranja : cores.cinza}
           />
         </View>
 
@@ -461,7 +464,7 @@ export default function CriarEvento() {
 
         <TouchableOpacity style={[styles.ctaBtn, carregando && styles.ctaBtnDisabled]} onPress={handleCriar} disabled={carregando}>
           {carregando ? (
-            <ActivityIndicator color={CORES.branco} />
+            <ActivityIndicator color={cores.branco} />
           ) : (
             <Text style={styles.ctaBtnText}>
               {user?.tipo_conta === 'pj' ? 'Criar e Pagar' : 'Publicar Evento'}
@@ -474,7 +477,7 @@ export default function CriarEvento() {
       <Modal visible={modalBloqueio} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Ionicons name="alert-circle" size={48} color={CORES.laranja} />
+            <Ionicons name="alert-circle" size={48} color={cores.laranja} />
             <Text style={styles.modalTitulo}>Conteúdo comercial detectado</Text>
             <Text style={styles.modalTexto}>
               {user?.tipo_conta === 'gov'
@@ -515,12 +518,12 @@ export default function CriarEvento() {
       <Modal visible={modalSucesso} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Ionicons name="checkmark-circle" size={56} color={CORES.sucesso} />
+            <Ionicons name="checkmark-circle" size={56} color={cores.sucesso} />
             <Text style={styles.modalTitulo}>Evento publicado!</Text>
             <Text style={styles.modalTexto}>
               Seu evento já está visível no mapa para todos os usuários da região.
             </Text>
-            <TouchableOpacity style={[styles.ctaBtn, { backgroundColor: CORES.sucesso }]} onPress={() => { setModalSucesso(false); router.back(); }}>
+            <TouchableOpacity style={[styles.ctaBtn, { backgroundColor: cores.sucesso }]} onPress={() => { setModalSucesso(false); router.back(); }}>
               <Text style={styles.ctaBtnText}>Voltar ao início</Text>
             </TouchableOpacity>
           </View>
@@ -531,7 +534,7 @@ export default function CriarEvento() {
       <Modal visible={modalGovNaoVerificado} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Ionicons name="shield-checkmark-outline" size={48} color={CORES.laranja} />
+            <Ionicons name="shield-checkmark-outline" size={48} color={cores.laranja} />
             <Text style={styles.modalTitulo}>Conta não verificada</Text>
             <Text style={styles.modalTexto}>
               Contas Governamentais precisam passar por um processo de verificação antes de publicar eventos.
@@ -549,88 +552,90 @@ export default function CriarEvento() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: CORES.background },
-  scroll: { flexGrow: 1, paddingHorizontal: SPACING.lg, paddingTop: 50, paddingBottom: 40 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.xl },
-  headerTitle: { fontSize: FONT_SIZE.xl, fontWeight: 'bold', color: CORES.branco },
-  badge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs, gap: 6, marginBottom: SPACING.lg },
-  badgeText: { color: CORES.laranja, fontSize: FONT_SIZE.xs, fontWeight: '600' },
+function createStyles(cores: Cores) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: cores.background },
+    scroll: { flexGrow: 1, paddingHorizontal: SPACING.lg, paddingTop: 50, paddingBottom: 40 },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.xl },
+    headerTitle: { fontSize: FONT_SIZE.xl, fontWeight: 'bold', color: cores.branco },
+    badge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', backgroundColor: cores.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs, gap: 6, marginBottom: SPACING.lg },
+    badgeText: { color: cores.laranja, fontSize: FONT_SIZE.xs, fontWeight: '600' },
 
-  imagemCapaWrapper: { alignItems: 'center', marginBottom: SPACING.lg },
+    imagemCapaWrapper: { alignItems: 'center', marginBottom: SPACING.lg },
 
-  label: { color: CORES.branco, fontSize: FONT_SIZE.sm, fontWeight: '600', marginBottom: SPACING.xs },
-  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: CORES.backgroundInput, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.md, height: 48, marginBottom: SPACING.md },
-  inputIcon: { marginRight: SPACING.sm },
-  input: { flex: 1, color: CORES.branco, fontSize: FONT_SIZE.sm },
+    label: { color: cores.branco, fontSize: FONT_SIZE.sm, fontWeight: '600', marginBottom: SPACING.xs },
+    inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: cores.backgroundInput, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.md, height: 48, marginBottom: SPACING.md },
+    inputIcon: { marginRight: SPACING.sm },
+    input: { flex: 1, color: cores.branco, fontSize: FONT_SIZE.sm },
 
-  // Categorias
-  catGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginBottom: SPACING.lg },
-  catChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderWidth: 1, borderColor: 'transparent' },
-  catChipAtivo: { borderColor: CORES.laranja },
-  catChipText: { color: CORES.cinza, fontSize: FONT_SIZE.xs },
-  catChipTextAtivo: { color: CORES.laranja },
+    // Categorias
+    catGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginBottom: SPACING.lg },
+    catChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: cores.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderWidth: 1, borderColor: 'transparent' },
+    catChipAtivo: { borderColor: cores.laranja },
+    catChipText: { color: cores.cinza, fontSize: FONT_SIZE.xs },
+    catChipTextAtivo: { color: cores.laranja },
 
-  // Switch R9
-  switchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.md, padding: SPACING.md, marginBottom: SPACING.lg },
-  switchInfo: { flex: 1 },
-  switchLabel: { color: CORES.branco, fontSize: FONT_SIZE.sm, fontWeight: '600' },
-  switchDesc: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.xs, marginTop: 4 },
+    // Switch R9
+    switchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: cores.backgroundCard, borderRadius: RADIUS.md, padding: SPACING.md, marginBottom: SPACING.lg },
+    switchInfo: { flex: 1 },
+    switchLabel: { color: cores.branco, fontSize: FONT_SIZE.sm, fontWeight: '600' },
+    switchDesc: { color: cores.cinzaClaro, fontSize: FONT_SIZE.xs, marginTop: 4 },
 
-  erroText: { color: CORES.erro, fontSize: FONT_SIZE.xs, marginBottom: SPACING.sm },
+    erroText: { color: cores.erro, fontSize: FONT_SIZE.xs, marginBottom: SPACING.sm },
 
-  // DateTimePicker iOS modal
-  pickerOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    justifyContent: 'flex-end',
-  },
-  pickerContainer: {
-    backgroundColor: '#1E0F38',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 30,
-  },
-  pickerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
-  },
-  pickerTitulo: {
-    color: CORES.branco,
-    fontSize: FONT_SIZE.md,
-    fontWeight: '700',
-  },
-  pickerCancelar: {
-    color: CORES.cinzaClaro,
-    fontSize: FONT_SIZE.sm,
-    fontWeight: '600',
-  },
-  pickerConfirmar: {
-    color: CORES.roxoClaro,
-    fontSize: FONT_SIZE.sm,
-    fontWeight: '700',
-  },
-  pickerSpinner: {
-    height: 200,
-  },
+    // DateTimePicker iOS modal
+    pickerOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      justifyContent: 'flex-end',
+    },
+    pickerContainer: {
+      backgroundColor: '#1E0F38',
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingBottom: 30,
+    },
+    pickerHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: SPACING.lg,
+      paddingVertical: SPACING.md,
+      borderBottomWidth: 1,
+      borderBottomColor: 'rgba(255,255,255,0.08)',
+    },
+    pickerTitulo: {
+      color: cores.branco,
+      fontSize: FONT_SIZE.md,
+      fontWeight: '700',
+    },
+    pickerCancelar: {
+      color: cores.cinzaClaro,
+      fontSize: FONT_SIZE.sm,
+      fontWeight: '600',
+    },
+    pickerConfirmar: {
+      color: cores.roxoClaro,
+      fontSize: FONT_SIZE.sm,
+      fontWeight: '700',
+    },
+    pickerSpinner: {
+      height: 200,
+    },
 
-  ctaBtn: { paddingVertical: 14, backgroundColor: CORES.roxo, borderRadius: RADIUS.sm, alignItems: 'center', marginTop: SPACING.sm },
-  ctaBtnDisabled: { opacity: 0.6 },
-  ctaBtnText: { color: CORES.branco, fontSize: FONT_SIZE.md, fontWeight: 'bold' },
+    ctaBtn: { paddingVertical: 14, backgroundColor: cores.roxo, borderRadius: RADIUS.sm, alignItems: 'center', marginTop: SPACING.sm },
+    ctaBtnDisabled: { opacity: 0.6 },
+    ctaBtnText: { color: cores.branco, fontSize: FONT_SIZE.md, fontWeight: 'bold' },
 
-  // Modal R2
-  modalOverlay: { flex: 1, backgroundColor: CORES.overlay, justifyContent: 'center', padding: SPACING.lg },
-  modalContent: { backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.xl, padding: SPACING.xl, alignItems: 'center' },
-  modalTitulo: { color: CORES.branco, fontSize: FONT_SIZE.xl, fontWeight: 'bold', textAlign: 'center', marginTop: SPACING.md, marginBottom: SPACING.md },
-  modalTexto: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm, textAlign: 'center', lineHeight: 22, marginBottom: SPACING.md },
-  termosBox: { backgroundColor: CORES.background, borderRadius: RADIUS.sm, padding: SPACING.md, width: '100%', marginBottom: SPACING.md },
-  termosLabel: { color: CORES.laranja, fontSize: FONT_SIZE.xs, fontWeight: '600', marginBottom: 4 },
-  termosLista: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.xs },
-  modalFechar: { marginTop: SPACING.sm },
-  modalFecharText: { color: CORES.roxoClaro, fontSize: FONT_SIZE.sm, fontWeight: '600' },
-});
+    // Modal R2
+    modalOverlay: { flex: 1, backgroundColor: cores.overlay, justifyContent: 'center', padding: SPACING.lg },
+    modalContent: { backgroundColor: cores.backgroundCard, borderRadius: RADIUS.xl, padding: SPACING.xl, alignItems: 'center' },
+    modalTitulo: { color: cores.branco, fontSize: FONT_SIZE.xl, fontWeight: 'bold', textAlign: 'center', marginTop: SPACING.md, marginBottom: SPACING.md },
+    modalTexto: { color: cores.cinzaClaro, fontSize: FONT_SIZE.sm, textAlign: 'center', lineHeight: 22, marginBottom: SPACING.md },
+    termosBox: { backgroundColor: cores.background, borderRadius: RADIUS.sm, padding: SPACING.md, width: '100%', marginBottom: SPACING.md },
+    termosLabel: { color: cores.laranja, fontSize: FONT_SIZE.xs, fontWeight: '600', marginBottom: 4 },
+    termosLista: { color: cores.cinzaClaro, fontSize: FONT_SIZE.xs },
+    modalFechar: { marginTop: SPACING.sm },
+    modalFecharText: { color: cores.roxoClaro, fontSize: FONT_SIZE.sm, fontWeight: '600' },
+  });
+}

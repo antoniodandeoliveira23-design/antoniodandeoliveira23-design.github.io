@@ -12,11 +12,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
+import { FONT_SIZE, RADIUS, SPACING, type Cores } from '@/constants/theme';
+import { useCores } from '@/contexts/TemaContext';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Genero } from '@/types';
 
 export default function EditarPerfilScreen() {
+  const cores = useCores();
+  const styles = createStyles(cores);
   const router = useRouter();
   const { user, updateUser } = useAuth();
 
@@ -58,7 +61,7 @@ export default function EditarPerfilScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color={CORES.branco} />
+            <Ionicons name="arrow-back" size={24} color={cores.branco} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Editar perfil</Text>
           <View style={{ width: 24 }} />
@@ -70,7 +73,7 @@ export default function EditarPerfilScreen() {
             <Text style={styles.avatarText}>{nome.charAt(0).toUpperCase() || 'U'}</Text>
           </View>
           <TouchableOpacity style={styles.changeAvatarBtn}>
-            <Ionicons name="camera-outline" size={16} color={CORES.roxoClaro} />
+            <Ionicons name="camera-outline" size={16} color={cores.roxoClaro} />
             <Text style={styles.changeAvatarText}>Alterar foto</Text>
           </TouchableOpacity>
         </View>
@@ -80,13 +83,13 @@ export default function EditarPerfilScreen() {
           <View style={styles.halfField}>
             <Text style={styles.label}>Nome</Text>
             <View style={styles.inputWrapper}>
-              <TextInput style={styles.input} value={nome} onChangeText={setNome} placeholder="Nome" placeholderTextColor={CORES.cinza} />
+              <TextInput style={styles.input} value={nome} onChangeText={setNome} placeholder="Nome" placeholderTextColor={cores.cinza} />
             </View>
           </View>
           <View style={styles.halfField}>
             <Text style={styles.label}>Sobrenome</Text>
             <View style={styles.inputWrapper}>
-              <TextInput style={styles.input} value={sobrenome} onChangeText={setSobrenome} placeholder="Sobrenome" placeholderTextColor={CORES.cinza} />
+              <TextInput style={styles.input} value={sobrenome} onChangeText={setSobrenome} placeholder="Sobrenome" placeholderTextColor={cores.cinza} />
             </View>
           </View>
         </View>
@@ -94,12 +97,12 @@ export default function EditarPerfilScreen() {
         <Text style={styles.label}>Nome de usuário</Text>
         <View style={styles.inputWrapper}>
           <Text style={styles.inputPrefix}>@</Text>
-          <TextInput style={styles.input} value={username} onChangeText={setUsername} placeholder="username" placeholderTextColor={CORES.cinza} autoCapitalize="none" />
+          <TextInput style={styles.input} value={username} onChangeText={setUsername} placeholder="username" placeholderTextColor={cores.cinza} autoCapitalize="none" />
         </View>
 
         <Text style={styles.label}>E-mail</Text>
         <View style={[styles.inputWrapper, styles.inputDisabled]}>
-          <Ionicons name="mail-outline" size={16} color={CORES.cinza} style={{ marginRight: SPACING.sm }} />
+          <Ionicons name="mail-outline" size={16} color={cores.cinza} style={{ marginRight: SPACING.sm }} />
           <Text style={styles.inputTextDisabled}>{user?.email}</Text>
         </View>
 
@@ -110,7 +113,7 @@ export default function EditarPerfilScreen() {
             value={bio}
             onChangeText={setBio}
             placeholder="Conte um pouco sobre você..."
-            placeholderTextColor={CORES.cinza}
+            placeholderTextColor={cores.cinza}
             multiline
             maxLength={160}
           />
@@ -130,7 +133,7 @@ export default function EditarPerfilScreen() {
               style={[styles.generoChip, genero === g.value && styles.generoChipAtivo]}
               onPress={() => setGenero(genero === g.value ? '' : g.value)}
             >
-              <Ionicons name={g.icon as any} size={16} color={genero === g.value ? CORES.laranja : CORES.cinza} />
+              <Ionicons name={g.icon as any} size={16} color={genero === g.value ? cores.laranja : cores.cinza} />
               <Text style={[styles.generoChipText, genero === g.value && styles.generoChipTextAtivo]}>{g.label}</Text>
             </TouchableOpacity>
           ))}
@@ -138,7 +141,7 @@ export default function EditarPerfilScreen() {
 
         {/* Info tipo de conta */}
         <View style={styles.infoCard}>
-          <Ionicons name="information-circle-outline" size={20} color={CORES.roxoClaro} />
+          <Ionicons name="information-circle-outline" size={20} color={cores.roxoClaro} />
           <View style={styles.infoCardContent}>
             <Text style={styles.infoCardTitle}>Tipo de conta</Text>
             <Text style={styles.infoCardText}>
@@ -159,10 +162,10 @@ export default function EditarPerfilScreen() {
       <Modal visible={modalSucesso} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Ionicons name="checkmark-circle" size={56} color={CORES.sucesso} />
+            <Ionicons name="checkmark-circle" size={56} color={cores.sucesso} />
             <Text style={styles.modalTitulo}>Perfil atualizado!</Text>
             <Text style={styles.modalTexto}>Suas informações foram salvas com sucesso.</Text>
-            <TouchableOpacity style={[styles.ctaBtn, { backgroundColor: CORES.sucesso }]} onPress={() => { setModalSucesso(false); router.back(); }}>
+            <TouchableOpacity style={[styles.ctaBtn, { backgroundColor: cores.sucesso }]} onPress={() => { setModalSucesso(false); router.back(); }}>
               <Text style={styles.ctaBtnText}>Voltar ao perfil</Text>
             </TouchableOpacity>
           </View>
@@ -172,49 +175,51 @@ export default function EditarPerfilScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: CORES.background },
-  scroll: { flexGrow: 1, paddingHorizontal: SPACING.lg, paddingTop: 50, paddingBottom: 40 },
+function createStyles(cores: Cores) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: cores.background },
+    scroll: { flexGrow: 1, paddingHorizontal: SPACING.lg, paddingTop: 50, paddingBottom: 40 },
 
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.xl },
-  headerTitle: { fontSize: FONT_SIZE.xl, fontWeight: 'bold', color: CORES.branco },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.xl },
+    headerTitle: { fontSize: FONT_SIZE.xl, fontWeight: 'bold', color: cores.branco },
 
-  avatarSection: { alignItems: 'center', marginBottom: SPACING.xl },
-  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: CORES.roxo, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.sm },
-  avatarText: { fontSize: 32, fontWeight: 'bold', color: CORES.branco },
-  changeAvatarBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  changeAvatarText: { color: CORES.roxoClaro, fontSize: FONT_SIZE.sm, fontWeight: '600' },
+    avatarSection: { alignItems: 'center', marginBottom: SPACING.xl },
+    avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: cores.roxo, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.sm },
+    avatarText: { fontSize: 32, fontWeight: 'bold', color: cores.branco },
+    changeAvatarBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    changeAvatarText: { color: cores.roxoClaro, fontSize: FONT_SIZE.sm, fontWeight: '600' },
 
-  rowFields: { flexDirection: 'row', gap: SPACING.md },
-  halfField: { flex: 1 },
+    rowFields: { flexDirection: 'row', gap: SPACING.md },
+    halfField: { flex: 1 },
 
-  label: { color: CORES.branco, fontSize: FONT_SIZE.sm, fontWeight: '600', marginBottom: SPACING.xs },
-  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: CORES.backgroundInput, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.md, height: 48, marginBottom: SPACING.md },
-  input: { flex: 1, color: CORES.branco, fontSize: FONT_SIZE.sm },
-  inputPrefix: { color: CORES.cinza, fontSize: FONT_SIZE.sm, marginRight: 4 },
-  inputDisabled: { opacity: 0.6 },
-  inputTextDisabled: { color: CORES.cinza, fontSize: FONT_SIZE.sm },
-  charCount: { color: CORES.cinza, fontSize: FONT_SIZE.xs, alignSelf: 'flex-end', marginTop: -12, marginBottom: SPACING.md },
+    label: { color: cores.branco, fontSize: FONT_SIZE.sm, fontWeight: '600', marginBottom: SPACING.xs },
+    inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: cores.backgroundInput, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.md, height: 48, marginBottom: SPACING.md },
+    input: { flex: 1, color: cores.branco, fontSize: FONT_SIZE.sm },
+    inputPrefix: { color: cores.cinza, fontSize: FONT_SIZE.sm, marginRight: 4 },
+    inputDisabled: { opacity: 0.6 },
+    inputTextDisabled: { color: cores.cinza, fontSize: FONT_SIZE.sm },
+    charCount: { color: cores.cinza, fontSize: FONT_SIZE.xs, alignSelf: 'flex-end', marginTop: -12, marginBottom: SPACING.md },
 
-  generoRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.lg },
-  generoChip: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.sm, paddingVertical: SPACING.sm, borderWidth: 1, borderColor: 'transparent' },
-  generoChipAtivo: { borderColor: CORES.laranja },
-  generoChipText: { color: CORES.cinza, fontSize: FONT_SIZE.xs },
-  generoChipTextAtivo: { color: CORES.laranja },
+    generoRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.lg },
+    generoChip: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: cores.backgroundCard, borderRadius: RADIUS.sm, paddingVertical: SPACING.sm, borderWidth: 1, borderColor: 'transparent' },
+    generoChipAtivo: { borderColor: cores.laranja },
+    generoChipText: { color: cores.cinza, fontSize: FONT_SIZE.xs },
+    generoChipTextAtivo: { color: cores.laranja },
 
-  infoCard: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.md, padding: SPACING.md, marginBottom: SPACING.lg },
-  infoCardContent: { flex: 1 },
-  infoCardTitle: { color: CORES.branco, fontSize: FONT_SIZE.sm, fontWeight: '600' },
-  infoCardText: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.xs, marginTop: 2 },
+    infoCard: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, backgroundColor: cores.backgroundCard, borderRadius: RADIUS.md, padding: SPACING.md, marginBottom: SPACING.lg },
+    infoCardContent: { flex: 1 },
+    infoCardTitle: { color: cores.branco, fontSize: FONT_SIZE.sm, fontWeight: '600' },
+    infoCardText: { color: cores.cinzaClaro, fontSize: FONT_SIZE.xs, marginTop: 2 },
 
-  erroText: { color: CORES.erro, fontSize: FONT_SIZE.xs, marginBottom: SPACING.sm },
+    erroText: { color: cores.erro, fontSize: FONT_SIZE.xs, marginBottom: SPACING.sm },
 
-  ctaBtn: { paddingVertical: 14, backgroundColor: CORES.roxo, borderRadius: RADIUS.sm, alignItems: 'center', marginTop: SPACING.sm },
-  ctaBtnDisabled: { opacity: 0.6 },
-  ctaBtnText: { color: CORES.branco, fontSize: FONT_SIZE.md, fontWeight: 'bold' },
+    ctaBtn: { paddingVertical: 14, backgroundColor: cores.roxo, borderRadius: RADIUS.sm, alignItems: 'center', marginTop: SPACING.sm },
+    ctaBtnDisabled: { opacity: 0.6 },
+    ctaBtnText: { color: cores.branco, fontSize: FONT_SIZE.md, fontWeight: 'bold' },
 
-  modalOverlay: { flex: 1, backgroundColor: CORES.overlay, justifyContent: 'center', padding: SPACING.lg },
-  modalContent: { backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.xl, padding: SPACING.xl, alignItems: 'center' },
-  modalTitulo: { color: CORES.branco, fontSize: FONT_SIZE.xl, fontWeight: 'bold', marginTop: SPACING.md, marginBottom: SPACING.sm },
-  modalTexto: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm, textAlign: 'center', marginBottom: SPACING.lg },
-});
+    modalOverlay: { flex: 1, backgroundColor: cores.overlay, justifyContent: 'center', padding: SPACING.lg },
+    modalContent: { backgroundColor: cores.backgroundCard, borderRadius: RADIUS.xl, padding: SPACING.xl, alignItems: 'center' },
+    modalTitulo: { color: cores.branco, fontSize: FONT_SIZE.xl, fontWeight: 'bold', marginTop: SPACING.md, marginBottom: SPACING.sm },
+    modalTexto: { color: cores.cinzaClaro, fontSize: FONT_SIZE.sm, textAlign: 'center', marginBottom: SPACING.lg },
+  });
+}

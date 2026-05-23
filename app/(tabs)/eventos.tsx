@@ -13,7 +13,8 @@ import {
   View,
   Modal,
 } from 'react-native';
-import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
+import { FONT_SIZE, RADIUS, SPACING, type Cores } from '@/constants/theme';
+import { useCores } from '@/contexts/TemaContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEventos } from '@/contexts/EventosContext';
 import ModalDenuncia from '@/components/ModalDenuncia';
@@ -37,6 +38,8 @@ const FILTROS: { value: CategoriaEvento | null; label: string }[] = [
 ];
 
 export default function EventosScreen() {
+  const cores = useCores();
+  const styles = createStyles(cores);
   const { user } = useAuth();
   const { eventos, loading, carregarEventos, buscarEventos, filtroCategoria, filtrarPorCategoria, favoritarEvento, desfavoritarEvento, favoritos } = useEventos();
 
@@ -77,29 +80,29 @@ export default function EventosScreen() {
     return (
       <TouchableOpacity style={styles.card} onPress={() => { setEventoSelecionado(item); setModalVisivel(true); }}>
         <View style={styles.iconCircle}>
-          <Ionicons name={(ICON_MAP[item.categoria] || 'calendar') as any} size={22} color={CORES.laranja} />
+          <Ionicons name={(ICON_MAP[item.categoria] || 'calendar') as any} size={22} color={cores.laranja} />
         </View>
         <View style={styles.cardInfo}>
           <Text style={styles.cardNome}>{item.nome}</Text>
           <View style={styles.cardMetaRow}>
-            <Ionicons name="location-outline" size={12} color={CORES.cinzaClaro} />
+            <Ionicons name="location-outline" size={12} color={cores.cinzaClaro} />
             <Text style={styles.cardLocal}>{item.local}</Text>
           </View>
           <View style={styles.cardMetaRow}>
-            <Ionicons name="calendar-outline" size={12} color={CORES.laranja} />
+            <Ionicons name="calendar-outline" size={12} color={cores.laranja} />
             <Text style={styles.cardData}>
               {new Date(item.data_inicio).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
             </Text>
           </View>
           {item.destaque && (
             <View style={styles.destaqueBadge}>
-              <Ionicons name="star" size={10} color={CORES.laranja} />
+              <Ionicons name="star" size={10} color={cores.laranja} />
               <Text style={styles.destaqueText}>Destaque</Text>
             </View>
           )}
         </View>
         <TouchableOpacity style={styles.favBtn} onPress={() => toggleFavorito(item.id)}>
-          <Ionicons name={isFav ? 'heart' : 'heart-outline'} size={20} color={isFav ? CORES.erro : CORES.cinza} />
+          <Ionicons name={isFav ? 'heart' : 'heart-outline'} size={20} color={isFav ? cores.erro : cores.cinza} />
         </TouchableOpacity>
       </TouchableOpacity>
     );
@@ -111,11 +114,11 @@ export default function EventosScreen() {
 
       {/* Busca */}
       <View style={styles.searchWrapper}>
-        <Ionicons name="search" size={18} color={CORES.cinza} />
+        <Ionicons name="search" size={18} color={cores.cinza} />
         <TextInput
           style={styles.searchInput}
           placeholder="Buscar eventos..."
-          placeholderTextColor={CORES.cinza}
+          placeholderTextColor={cores.cinza}
           value={busca}
           onChangeText={setBusca}
           onSubmitEditing={handleBusca}
@@ -140,7 +143,7 @@ export default function EventosScreen() {
       <Text style={styles.subtitulo}>{eventosFiltrados.length} eventos encontrados</Text>
 
       {loading ? (
-        <ActivityIndicator size="large" color={CORES.roxo} style={{ marginTop: SPACING.xl }} />
+        <ActivityIndicator size="large" color={cores.roxo} style={{ marginTop: SPACING.xl }} />
       ) : (
         <FlatList
           data={eventosFiltrados}
@@ -149,7 +152,7 @@ export default function EventosScreen() {
           renderItem={renderEvento}
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Ionicons name="search" size={48} color={CORES.roxo} />
+              <Ionicons name="search" size={48} color={cores.roxo} />
               <Text style={styles.emptyTitle}>Nenhum evento encontrado</Text>
               <Text style={styles.emptyText}>Tente outra categoria ou termo de busca.</Text>
             </View>
@@ -165,11 +168,11 @@ export default function EventosScreen() {
               <>
                 <View style={styles.modalHero}>
                   <View style={styles.modalHeroIcon}>
-                    <Ionicons name={(ICON_MAP[eventoSelecionado.categoria] || 'calendar') as any} size={32} color={CORES.laranja} />
+                    <Ionicons name={(ICON_MAP[eventoSelecionado.categoria] || 'calendar') as any} size={32} color={cores.laranja} />
                   </View>
                   {eventoSelecionado.destaque && (
                     <View style={styles.heroDestaque}>
-                      <Ionicons name="star" size={12} color={CORES.laranja} />
+                      <Ionicons name="star" size={12} color={cores.laranja} />
                       <Text style={styles.heroDestaqueText}>Destaque</Text>
                     </View>
                   )}
@@ -185,21 +188,21 @@ export default function EventosScreen() {
                       <Ionicons
                         name={favoritos.includes(eventoSelecionado.id) ? 'heart' : 'heart-outline'}
                         size={20}
-                        color={favoritos.includes(eventoSelecionado.id) ? CORES.erro : CORES.cinzaClaro}
+                        color={favoritos.includes(eventoSelecionado.id) ? cores.erro : cores.cinzaClaro}
                       />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => abrirDenuncia(eventoSelecionado.id)} style={styles.headerActionBtn}>
-                      <Ionicons name="flag-outline" size={18} color={CORES.erro} />
+                      <Ionicons name="flag-outline" size={18} color={cores.erro} />
                     </TouchableOpacity>
                   </View>
                 </View>
 
                 <View style={styles.infoRow}>
-                  <Ionicons name="location-outline" size={16} color={CORES.roxoClaro} />
+                  <Ionicons name="location-outline" size={16} color={cores.roxoClaro} />
                   <Text style={styles.infoText}>{eventoSelecionado.local}</Text>
                 </View>
                 <View style={styles.infoRow}>
-                  <Ionicons name="calendar-outline" size={16} color={CORES.roxoClaro} />
+                  <Ionicons name="calendar-outline" size={16} color={cores.roxoClaro} />
                   <Text style={styles.infoText}>
                     {new Date(eventoSelecionado.data_inicio).toLocaleDateString('pt-BR', {
                       weekday: 'short', day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit',
@@ -208,8 +211,8 @@ export default function EventosScreen() {
                 </View>
                 {eventoSelecionado.exclusivo_mulheres && (
                   <View style={styles.infoRow}>
-                    <Ionicons name="female" size={16} color={CORES.laranja} />
-                    <Text style={[styles.infoText, { color: CORES.laranja }]}>Exclusivo para mulheres</Text>
+                    <Ionicons name="female" size={16} color={cores.laranja} />
+                    <Text style={[styles.infoText, { color: cores.laranja }]}>Exclusivo para mulheres</Text>
                   </View>
                 )}
                 {eventoSelecionado.descricao ? (
@@ -234,7 +237,7 @@ export default function EventosScreen() {
                 <Text style={styles.ctaSecundarioText}>Fechar</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.ctaBtn} onPress={() => eventoSelecionado && abrirDirecoes(eventoSelecionado)}>
-                <Ionicons name="navigate" size={16} color={CORES.branco} />
+                <Ionicons name="navigate" size={16} color={cores.branco} />
                 <Text style={styles.ctaBtnText}>Como chegar</Text>
               </TouchableOpacity>
             </View>
@@ -252,64 +255,66 @@ export default function EventosScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: CORES.background, paddingTop: 60, paddingHorizontal: SPACING.lg },
-  titulo: { fontSize: FONT_SIZE.xxl, fontWeight: 'bold', color: CORES.branco, marginBottom: SPACING.md },
+function createStyles(cores: Cores) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: cores.background, paddingTop: 60, paddingHorizontal: SPACING.lg },
+    titulo: { fontSize: FONT_SIZE.xxl, fontWeight: 'bold', color: cores.branco, marginBottom: SPACING.md },
 
-  searchWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, height: 44, gap: SPACING.sm, marginBottom: SPACING.sm },
-  searchInput: { flex: 1, color: CORES.branco, fontSize: FONT_SIZE.sm },
+    searchWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: cores.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, height: 44, gap: SPACING.sm, marginBottom: SPACING.sm },
+    searchInput: { flex: 1, color: cores.branco, fontSize: FONT_SIZE.sm },
 
-  filtrosScroll: { maxHeight: 40, marginBottom: SPACING.sm },
-  filtrosContent: { gap: SPACING.sm },
-  filtroChip: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderRadius: RADIUS.full, backgroundColor: CORES.backgroundCard },
-  filtroChipAtivo: { backgroundColor: CORES.roxo },
-  filtroChipText: { color: CORES.cinza, fontSize: FONT_SIZE.xs },
-  filtroChipTextAtivo: { color: CORES.branco },
+    filtrosScroll: { maxHeight: 40, marginBottom: SPACING.sm },
+    filtrosContent: { gap: SPACING.sm },
+    filtroChip: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderRadius: RADIUS.full, backgroundColor: cores.backgroundCard },
+    filtroChipAtivo: { backgroundColor: cores.roxo },
+    filtroChipText: { color: cores.cinza, fontSize: FONT_SIZE.xs },
+    filtroChipTextAtivo: { color: cores.branco },
 
-  subtitulo: { fontSize: FONT_SIZE.xs, color: CORES.cinzaClaro, marginBottom: SPACING.md },
+    subtitulo: { fontSize: FONT_SIZE.xs, color: cores.cinzaClaro, marginBottom: SPACING.md },
 
-  list: { gap: SPACING.sm, paddingBottom: 100 },
-  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.lg, padding: SPACING.md, gap: SPACING.md },
-  iconCircle: { width: 48, height: 48, borderRadius: 24, backgroundColor: CORES.background, justifyContent: 'center', alignItems: 'center' },
-  cardInfo: { flex: 1 },
-  cardNome: { color: CORES.branco, fontSize: FONT_SIZE.md, fontWeight: 'bold' },
-  cardMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
-  cardLocal: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.xs },
-  cardData: { color: CORES.laranja, fontSize: FONT_SIZE.xs, fontWeight: '600' },
-  destaqueBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4, alignSelf: 'flex-start', backgroundColor: CORES.background, borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 2 },
-  destaqueText: { color: CORES.laranja, fontSize: 10, fontWeight: '600' },
-  favBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: CORES.background, justifyContent: 'center', alignItems: 'center' },
+    list: { gap: SPACING.sm, paddingBottom: 100 },
+    card: { flexDirection: 'row', alignItems: 'center', backgroundColor: cores.backgroundCard, borderRadius: RADIUS.lg, padding: SPACING.md, gap: SPACING.md },
+    iconCircle: { width: 48, height: 48, borderRadius: 24, backgroundColor: cores.background, justifyContent: 'center', alignItems: 'center' },
+    cardInfo: { flex: 1 },
+    cardNome: { color: cores.branco, fontSize: FONT_SIZE.md, fontWeight: 'bold' },
+    cardMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
+    cardLocal: { color: cores.cinzaClaro, fontSize: FONT_SIZE.xs },
+    cardData: { color: cores.laranja, fontSize: FONT_SIZE.xs, fontWeight: '600' },
+    destaqueBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4, alignSelf: 'flex-start', backgroundColor: cores.background, borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 2 },
+    destaqueText: { color: cores.laranja, fontSize: 10, fontWeight: '600' },
+    favBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: cores.background, justifyContent: 'center', alignItems: 'center' },
 
-  emptyState: { alignItems: 'center', marginTop: 60, gap: 8 },
-  emptyTitle: { color: CORES.branco, fontSize: FONT_SIZE.lg, fontWeight: '600' },
-  emptyText: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm },
+    emptyState: { alignItems: 'center', marginTop: 60, gap: 8 },
+    emptyTitle: { color: cores.branco, fontSize: FONT_SIZE.lg, fontWeight: '600' },
+    emptyText: { color: cores.cinzaClaro, fontSize: FONT_SIZE.sm },
 
-  // Modal
-  modalOverlay: { flex: 1, backgroundColor: CORES.overlay, justifyContent: 'center', padding: SPACING.lg },
-  modalContent: { backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.xl, padding: SPACING.lg },
-  modalHero: { height: 120, backgroundColor: CORES.background, borderRadius: RADIUS.lg, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.md, position: 'relative' },
-  modalHeroIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: CORES.backgroundCard, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: CORES.laranja },
-  heroDestaque: { position: 'absolute', top: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.sm, paddingVertical: 4 },
-  heroDestaqueText: { color: CORES.laranja, fontSize: 10, fontWeight: '600' },
+    // Modal
+    modalOverlay: { flex: 1, backgroundColor: cores.overlay, justifyContent: 'center', padding: SPACING.lg },
+    modalContent: { backgroundColor: cores.backgroundCard, borderRadius: RADIUS.xl, padding: SPACING.lg },
+    modalHero: { height: 120, backgroundColor: cores.background, borderRadius: RADIUS.lg, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.md, position: 'relative' },
+    modalHeroIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: cores.backgroundCard, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: cores.laranja },
+    heroDestaque: { position: 'absolute', top: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: cores.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.sm, paddingVertical: 4 },
+    heroDestaqueText: { color: cores.laranja, fontSize: 10, fontWeight: '600' },
 
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: SPACING.sm, gap: SPACING.sm },
-  modalTitulo: { color: CORES.branco, fontSize: FONT_SIZE.xl, fontWeight: 'bold', flex: 1 },
-  headerActions: { flexDirection: 'row', gap: SPACING.xs },
-  headerActionBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: CORES.background, justifyContent: 'center', alignItems: 'center' },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: SPACING.sm, gap: SPACING.sm },
+    modalTitulo: { color: cores.branco, fontSize: FONT_SIZE.xl, fontWeight: 'bold', flex: 1 },
+    headerActions: { flexDirection: 'row', gap: SPACING.xs },
+    headerActionBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: cores.background, justifyContent: 'center', alignItems: 'center' },
 
-  infoRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.xs },
-  infoText: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm, flex: 1 },
-  modalDesc: { color: CORES.branco, fontSize: FONT_SIZE.sm, lineHeight: 22, marginTop: SPACING.sm, marginBottom: SPACING.md },
+    infoRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.xs },
+    infoText: { color: cores.cinzaClaro, fontSize: FONT_SIZE.sm, flex: 1 },
+    modalDesc: { color: cores.branco, fontSize: FONT_SIZE.sm, lineHeight: 22, marginTop: SPACING.sm, marginBottom: SPACING.md },
 
-  badgeRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.md, flexWrap: 'wrap' },
-  catBadge: { backgroundColor: CORES.background, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: 4 },
-  catBadgeText: { color: CORES.roxoClaro, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
-  comercialBadge: { backgroundColor: CORES.laranja + '33', borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: 4 },
-  comercialText: { color: CORES.laranja, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+    badgeRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.md, flexWrap: 'wrap' },
+    catBadge: { backgroundColor: cores.background, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: 4 },
+    catBadgeText: { color: cores.roxoClaro, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+    comercialBadge: { backgroundColor: cores.laranja + '33', borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: 4 },
+    comercialText: { color: cores.laranja, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
 
-  ctaRow: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.sm },
-  ctaSecundario: { flex: 1, paddingVertical: 12, backgroundColor: CORES.background, borderRadius: RADIUS.sm, alignItems: 'center', justifyContent: 'center' },
-  ctaSecundarioText: { color: CORES.cinzaClaro, fontWeight: '600' },
-  ctaBtn: { flex: 2, flexDirection: 'row', gap: 6, paddingVertical: 12, backgroundColor: CORES.roxo, borderRadius: RADIUS.sm, alignItems: 'center', justifyContent: 'center' },
-  ctaBtnText: { color: CORES.branco, fontWeight: 'bold' },
-});
+    ctaRow: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.sm },
+    ctaSecundario: { flex: 1, paddingVertical: 12, backgroundColor: cores.background, borderRadius: RADIUS.sm, alignItems: 'center', justifyContent: 'center' },
+    ctaSecundarioText: { color: cores.cinzaClaro, fontWeight: '600' },
+    ctaBtn: { flex: 2, flexDirection: 'row', gap: 6, paddingVertical: 12, backgroundColor: cores.roxo, borderRadius: RADIUS.sm, alignItems: 'center', justifyContent: 'center' },
+    ctaBtnText: { color: cores.branco, fontWeight: 'bold' },
+  });
+}

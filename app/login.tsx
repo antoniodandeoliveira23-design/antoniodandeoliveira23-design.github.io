@@ -11,7 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
+import { FONT_SIZE, RADIUS, SPACING, type Cores } from '@/constants/theme';
+import { useCores } from '@/contexts/TemaContext';
 import { useSEO } from '@/hooks/useSEO';
 import { useAuth } from '@/contexts/AuthContext';
 import SocialLoginButtons from '@/components/SocialLoginButtons';
@@ -25,6 +26,8 @@ const DEMO_ACCOUNTS: { tipo: TipoConta; label: string; icon: string; desc: strin
 ];
 
 export default function Login() {
+  const cores = useCores();
+  const styles = createStyles(cores);
   const router = useRouter();
   const { erro: erroParam } = useLocalSearchParams<{ erro?: string }>();
   const { login, loginDemo, loginSocial } = useAuth();
@@ -128,9 +131,9 @@ export default function Login() {
             >
               <View style={[styles.demoIconCircle, demoTipo === acc.tipo && styles.demoIconAtivo]}>
                 {acc.iconLib === 'material' ? (
-                  <MaterialCommunityIcons name={acc.icon as any} size={20} color={demoTipo === acc.tipo ? CORES.branco : CORES.roxoClaro} />
+                  <MaterialCommunityIcons name={acc.icon as any} size={20} color={demoTipo === acc.tipo ? cores.branco : cores.roxoClaro} />
                 ) : (
-                  <Ionicons name={acc.icon as any} size={20} color={demoTipo === acc.tipo ? CORES.branco : CORES.roxoClaro} />
+                  <Ionicons name={acc.icon as any} size={20} color={demoTipo === acc.tipo ? cores.branco : cores.roxoClaro} />
                 )}
               </View>
               <Text style={styles.demoCardLabel}>{acc.label}</Text>
@@ -155,11 +158,11 @@ export default function Login() {
         {/* Form */}
         <Text style={styles.label}>E-mail</Text>
         <View style={styles.inputWrapper}>
-          <Ionicons name="mail-outline" size={18} color={CORES.cinza} style={styles.inputIcon} />
+          <Ionicons name="mail-outline" size={18} color={cores.cinza} style={styles.inputIcon} />
           <TextInput
             style={styles.input}
             placeholder="E-mail"
-            placeholderTextColor={CORES.cinza}
+            placeholderTextColor={cores.cinza}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -169,17 +172,17 @@ export default function Login() {
 
         <Text style={styles.label}>Senha</Text>
         <View style={styles.inputWrapper}>
-          <Ionicons name="lock-closed-outline" size={18} color={CORES.cinza} style={styles.inputIcon} />
+          <Ionicons name="lock-closed-outline" size={18} color={cores.cinza} style={styles.inputIcon} />
           <TextInput
             style={styles.input}
             placeholder="Senha"
-            placeholderTextColor={CORES.cinza}
+            placeholderTextColor={cores.cinza}
             value={senha}
             onChangeText={setSenha}
             secureTextEntry={!senhaVisivel}
           />
           <TouchableOpacity onPress={() => setSenhaVisivel(!senhaVisivel)}>
-            <Ionicons name={senhaVisivel ? 'eye-outline' : 'eye-off-outline'} size={18} color={CORES.cinza} />
+            <Ionicons name={senhaVisivel ? 'eye-outline' : 'eye-off-outline'} size={18} color={cores.cinza} />
           </TouchableOpacity>
         </View>
 
@@ -204,37 +207,39 @@ export default function Login() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: CORES.background },
-  scroll: { flexGrow: 1, alignItems: 'center', paddingHorizontal: SPACING.lg, paddingTop: 60, paddingBottom: 40 },
-  logoBox: { width: 56, height: 56, backgroundColor: CORES.preto, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.md },
-  logoText: { fontSize: 28, fontWeight: 'bold', color: CORES.branco },
-  titulo: { fontSize: FONT_SIZE.xxl, fontWeight: 'bold', color: CORES.branco, marginBottom: SPACING.lg },
+function createStyles(cores: Cores) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: cores.background },
+    scroll: { flexGrow: 1, alignItems: 'center', paddingHorizontal: SPACING.lg, paddingTop: 60, paddingBottom: 40 },
+    logoBox: { width: 56, height: 56, backgroundColor: cores.preto, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.md },
+    logoText: { fontSize: 28, fontWeight: 'bold', color: cores.branco },
+    titulo: { fontSize: FONT_SIZE.xxl, fontWeight: 'bold', color: cores.branco, marginBottom: SPACING.lg },
 
-  // Demo accounts
-  demoLabel: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.xs, fontWeight: '600', marginBottom: SPACING.sm, textTransform: 'uppercase', letterSpacing: 1 },
-  demoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, width: '100%', maxWidth: 400, marginBottom: SPACING.lg, justifyContent: 'center' },
-  demoCard: { width: '47%', backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.md, padding: SPACING.md, borderWidth: 1.5, borderColor: 'transparent', alignItems: 'center' },
-  demoCardAtivo: { borderColor: CORES.laranja },
-  demoIconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: CORES.background, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.xs },
-  demoIconAtivo: { backgroundColor: CORES.roxo },
-  demoCardLabel: { color: CORES.branco, fontSize: FONT_SIZE.xs, fontWeight: 'bold', textAlign: 'center' },
-  demoCardDesc: { color: CORES.cinzaClaro, fontSize: 10, textAlign: 'center', marginTop: 2 },
+    // Demo accounts
+    demoLabel: { color: cores.cinzaClaro, fontSize: FONT_SIZE.xs, fontWeight: '600', marginBottom: SPACING.sm, textTransform: 'uppercase', letterSpacing: 1 },
+    demoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, width: '100%', maxWidth: 400, marginBottom: SPACING.lg, justifyContent: 'center' },
+    demoCard: { width: '47%', backgroundColor: cores.backgroundCard, borderRadius: RADIUS.md, padding: SPACING.md, borderWidth: 1.5, borderColor: 'transparent', alignItems: 'center' },
+    demoCardAtivo: { borderColor: cores.laranja },
+    demoIconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: cores.background, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.xs },
+    demoIconAtivo: { backgroundColor: cores.roxo },
+    demoCardLabel: { color: cores.branco, fontSize: FONT_SIZE.xs, fontWeight: 'bold', textAlign: 'center' },
+    demoCardDesc: { color: cores.cinzaClaro, fontSize: 10, textAlign: 'center', marginTop: 2 },
 
-  dividerRow: { flexDirection: 'row', alignItems: 'center', width: '100%', maxWidth: 400, marginBottom: SPACING.md },
-  dividerLine: { flex: 1, height: 1, backgroundColor: CORES.border },
-  dividerText: { color: CORES.cinzaClaro, marginHorizontal: SPACING.sm, fontSize: FONT_SIZE.xs },
-  label: { color: CORES.branco, fontSize: FONT_SIZE.sm, fontWeight: '600', alignSelf: 'flex-start', maxWidth: 400, width: '100%', marginBottom: SPACING.xs },
-  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: CORES.backgroundInput, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.md, width: '100%', maxWidth: 400, height: 48, marginBottom: SPACING.md },
-  inputIcon: { marginRight: SPACING.sm },
-  input: { flex: 1, color: CORES.branco, fontSize: FONT_SIZE.sm },
-  erroText: { color: CORES.erro, fontSize: FONT_SIZE.sm, fontWeight: '600', alignSelf: 'flex-start', maxWidth: 400, marginBottom: SPACING.sm, backgroundColor: 'rgba(220,38,38,0.12)', padding: SPACING.sm, borderRadius: RADIUS.sm, width: '100%', lineHeight: 20 },
-  ctaBtn: { width: '100%', maxWidth: 400, paddingVertical: 14, backgroundColor: CORES.roxo, borderRadius: RADIUS.sm, alignItems: 'center', marginTop: SPACING.sm, marginBottom: SPACING.lg },
-  ctaBtnDisabled: { opacity: 0.6 },
-  ctaBtnText: { color: CORES.branco, fontSize: FONT_SIZE.md, fontWeight: 'bold' },
-  forgotBtn: { marginBottom: SPACING.lg, alignSelf: 'flex-end', maxWidth: 400, width: '100%' },
-  forgotText: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm, textAlign: 'right' },
-  footerRow: { flexDirection: 'row' },
-  footerText: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm },
-  footerLink: { color: CORES.roxoClaro, fontSize: FONT_SIZE.sm, fontWeight: '600' },
-});
+    dividerRow: { flexDirection: 'row', alignItems: 'center', width: '100%', maxWidth: 400, marginBottom: SPACING.md },
+    dividerLine: { flex: 1, height: 1, backgroundColor: cores.border },
+    dividerText: { color: cores.cinzaClaro, marginHorizontal: SPACING.sm, fontSize: FONT_SIZE.xs },
+    label: { color: cores.branco, fontSize: FONT_SIZE.sm, fontWeight: '600', alignSelf: 'flex-start', maxWidth: 400, width: '100%', marginBottom: SPACING.xs },
+    inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: cores.backgroundInput, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.md, width: '100%', maxWidth: 400, height: 48, marginBottom: SPACING.md },
+    inputIcon: { marginRight: SPACING.sm },
+    input: { flex: 1, color: cores.branco, fontSize: FONT_SIZE.sm },
+    erroText: { color: cores.erro, fontSize: FONT_SIZE.sm, fontWeight: '600', alignSelf: 'flex-start', maxWidth: 400, marginBottom: SPACING.sm, backgroundColor: 'rgba(220,38,38,0.12)', padding: SPACING.sm, borderRadius: RADIUS.sm, width: '100%', lineHeight: 20 },
+    ctaBtn: { width: '100%', maxWidth: 400, paddingVertical: 14, backgroundColor: cores.roxo, borderRadius: RADIUS.sm, alignItems: 'center', marginTop: SPACING.sm, marginBottom: SPACING.lg },
+    ctaBtnDisabled: { opacity: 0.6 },
+    ctaBtnText: { color: cores.branco, fontSize: FONT_SIZE.md, fontWeight: 'bold' },
+    forgotBtn: { marginBottom: SPACING.lg, alignSelf: 'flex-end', maxWidth: 400, width: '100%' },
+    forgotText: { color: cores.cinzaClaro, fontSize: FONT_SIZE.sm, textAlign: 'right' },
+    footerRow: { flexDirection: 'row' },
+    footerText: { color: cores.cinzaClaro, fontSize: FONT_SIZE.sm },
+    footerLink: { color: cores.roxoClaro, fontSize: FONT_SIZE.sm, fontWeight: '600' },
+  });
+}

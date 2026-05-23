@@ -29,7 +29,8 @@ import {
   View,
 } from 'react-native';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
+import { FONT_SIZE, RADIUS, SPACING, type Cores } from '@/constants/theme';
+import { useCores } from '@/contexts/TemaContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useChat } from '@/contexts/ChatContext';
 import ModalDenuncia from '@/components/ModalDenuncia';
@@ -48,6 +49,8 @@ interface ChatModalProps {
 }
 
 function ChatModal({ conversa, meuId, onFechar }: ChatModalProps) {
+  const cores = useCores();
+  const styles = createStyles(cores);
   const [mensagens,     setMensagens]     = useState<MensagemComAutor[]>([]);
   const [loadingMsgs,   setLoadingMsgs]   = useState(true);
   const [texto,         setTexto]         = useState('');
@@ -213,7 +216,7 @@ function ChatModal({ conversa, meuId, onFechar }: ChatModalProps) {
               <Ionicons
                 name={pendente ? 'time-outline' : item.lida ? 'checkmark-done' : 'checkmark'}
                 size={12}
-                color={item.lida ? CORES.roxoClaro : CORES.cinzaClaro}
+                color={item.lida ? cores.roxoClaro : cores.cinzaClaro}
                 style={{ marginLeft: 3 }}
               />
             )}
@@ -221,14 +224,14 @@ function ChatModal({ conversa, meuId, onFechar }: ChatModalProps) {
         </View>
       </View>
     );
-  }, [meuId]);
+  }, [meuId, cores, styles]);
 
   return (
     <View style={styles.chatContainer}>
       {/* Header */}
       <View style={styles.chatHeader}>
         <TouchableOpacity onPress={onFechar} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          <Ionicons name="arrow-back" size={24} color={CORES.branco} />
+          <Ionicons name="arrow-back" size={24} color={cores.branco} />
         </TouchableOpacity>
 
         <View style={styles.chatHeaderInfo}>
@@ -250,14 +253,14 @@ function ChatModal({ conversa, meuId, onFechar }: ChatModalProps) {
         </View>
 
         <TouchableOpacity onPress={() => setDenunciaOpen(true)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          <Ionicons name="flag-outline" size={20} color={CORES.erro} />
+          <Ionicons name="flag-outline" size={20} color={cores.erro} />
         </TouchableOpacity>
       </View>
 
       {/* Mensagens */}
       {loadingMsgs ? (
         <View style={styles.loadingCenter}>
-          <ActivityIndicator size="large" color={CORES.roxo} />
+          <ActivityIndicator size="large" color={cores.roxo} />
         </View>
       ) : (
         <FlatList
@@ -269,7 +272,7 @@ function ChatModal({ conversa, meuId, onFechar }: ChatModalProps) {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyChat}>
-              <Ionicons name="chatbubble-ellipses-outline" size={48} color={CORES.cinza} />
+              <Ionicons name="chatbubble-ellipses-outline" size={48} color={cores.cinza} />
               <Text style={styles.emptyChatText}>Seja o primeiro a enviar uma mensagem!</Text>
             </View>
           }
@@ -287,9 +290,9 @@ function ChatModal({ conversa, meuId, onFechar }: ChatModalProps) {
           <Ionicons
             name={msgBloqueada ? 'ban' : 'warning-outline'}
             size={14}
-            color={msgBloqueada ? CORES.erro : '#F59E0B'}
+            color={msgBloqueada ? cores.erro : '#F59E0B'}
           />
-          <Text style={[styles.alertaText, { color: msgBloqueada ? CORES.erro : '#F59E0B' }]} numberOfLines={2}>
+          <Text style={[styles.alertaText, { color: msgBloqueada ? cores.erro : '#F59E0B' }]} numberOfLines={2}>
             {alertaMsg}
           </Text>
         </View>
@@ -300,7 +303,7 @@ function ChatModal({ conversa, meuId, onFechar }: ChatModalProps) {
         <TextInput
           style={styles.chatInput}
           placeholder="Digite uma mensagem..."
-          placeholderTextColor={CORES.cinza}
+          placeholderTextColor={cores.cinza}
           value={texto}
           onChangeText={handleChangeTexto}
           onSubmitEditing={enviar}
@@ -315,8 +318,8 @@ function ChatModal({ conversa, meuId, onFechar }: ChatModalProps) {
           disabled={msgBloqueada || enviando || !texto.trim()}
         >
           {enviando
-            ? <ActivityIndicator size="small" color={CORES.branco} />
-            : <Ionicons name={msgBloqueada ? 'ban' : 'send'} size={20} color={CORES.branco} />
+            ? <ActivityIndicator size="small" color={cores.branco} />
+            : <Ionicons name={msgBloqueada ? 'ban' : 'send'} size={20} color={cores.branco} />
           }
         </TouchableOpacity>
       </View>
@@ -337,6 +340,8 @@ function ChatModal({ conversa, meuId, onFechar }: ChatModalProps) {
 // ─────────────────────────────────────────────────────────────────
 
 export default function MensagensScreen() {
+  const cores = useCores();
+  const styles = createStyles(cores);
   const { user } = useAuth();
   const { conversas, loading, carregarConversas, marcarConversaLida } = useChat();
 
@@ -390,12 +395,12 @@ export default function MensagensScreen() {
             <Text style={styles.conversaNome} numberOfLines={1}>
               {outro?.nome ?? 'Usuário'}
             </Text>
-            <Text style={[styles.conversaHora, temBadge && { color: CORES.laranja }]}>
+            <Text style={[styles.conversaHora, temBadge && { color: cores.laranja }]}>
               {chatService.formatarHora(item.atualizado_em)}
             </Text>
           </View>
           <View style={styles.conversaFooter}>
-            <Text style={[styles.conversaUltima, temBadge && { color: CORES.branco }]} numberOfLines={1}>
+            <Text style={[styles.conversaUltima, temBadge && { color: cores.branco }]} numberOfLines={1}>
               {item.ultima_mensagem ?? 'Nenhuma mensagem ainda'}
             </Text>
             {temBadge && (
@@ -433,25 +438,25 @@ export default function MensagensScreen() {
 
       {/* Busca */}
       <View style={styles.searchWrap}>
-        <Ionicons name="search" size={18} color={CORES.cinza} />
+        <Ionicons name="search" size={18} color={cores.cinza} />
         <TextInput
           style={styles.searchInput}
           placeholder="Buscar conversas..."
-          placeholderTextColor={CORES.cinza}
+          placeholderTextColor={cores.cinza}
           value={busca}
           onChangeText={setBusca}
           returnKeyType="search"
         />
         {busca.length > 0 && (
           <TouchableOpacity onPress={() => setBusca('')}>
-            <Ionicons name="close-circle" size={18} color={CORES.cinza} />
+            <Ionicons name="close-circle" size={18} color={cores.cinza} />
           </TouchableOpacity>
         )}
       </View>
 
       {loading && conversas.length === 0 ? (
         <View style={styles.loadingCenter}>
-          <ActivityIndicator size="large" color={CORES.roxo} />
+          <ActivityIndicator size="large" color={cores.roxo} />
         </View>
       ) : (
         <FlatList
@@ -464,7 +469,7 @@ export default function MensagensScreen() {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Ionicons name="chatbubbles-outline" size={64} color={CORES.roxo} />
+              <Ionicons name="chatbubbles-outline" size={64} color={cores.roxo} />
               <Text style={styles.emptyTitle}>
                 {busca ? 'Nenhuma conversa encontrada' : 'Nenhuma conversa ainda'}
               </Text>
@@ -485,215 +490,217 @@ export default function MensagensScreen() {
 // Estilos
 // ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  // ── Tela principal ────────────────────────────────────────
-  container: {
-    flex: 1,
-    backgroundColor: CORES.background,
-    paddingTop: Platform.OS === 'web' ? 20 : 60,
-    paddingHorizontal: SPACING.lg,
-  },
-  titulo: {
-    fontSize: FONT_SIZE.xxl,
-    fontWeight: 'bold',
-    color: CORES.branco,
-    marginBottom: SPACING.md,
-  },
+function createStyles(cores: Cores) {
+  return StyleSheet.create({
+    // ── Tela principal ────────────────────────────────────────
+    container: {
+      flex: 1,
+      backgroundColor: cores.background,
+      paddingTop: Platform.OS === 'web' ? 20 : 60,
+      paddingHorizontal: SPACING.lg,
+    },
+    titulo: {
+      fontSize: FONT_SIZE.xxl,
+      fontWeight: 'bold',
+      color: cores.branco,
+      marginBottom: SPACING.md,
+    },
 
-  searchWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: CORES.backgroundCard,
-    borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.md,
-    height: 44,
-    gap: SPACING.sm,
-    marginBottom: SPACING.lg,
-  },
-  searchInput: { flex: 1, color: CORES.branco, fontSize: FONT_SIZE.sm },
+    searchWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: cores.backgroundCard,
+      borderRadius: RADIUS.full,
+      paddingHorizontal: SPACING.md,
+      height: 44,
+      gap: SPACING.sm,
+      marginBottom: SPACING.lg,
+    },
+    searchInput: { flex: 1, color: cores.branco, fontSize: FONT_SIZE.sm },
 
-  lista: { paddingBottom: 120, gap: SPACING.xs },
+    lista: { paddingBottom: 120, gap: SPACING.xs },
 
-  loadingCenter: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    loadingCenter: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
-  // ── Card de conversa ──────────────────────────────────────
-  conversaCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: CORES.backgroundCard,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    gap: SPACING.md,
-  },
-  avatarWrap:  { position: 'relative' },
-  avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: CORES.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  avatarAtivo: { backgroundColor: CORES.roxo },
-  avatarText:  { color: CORES.branco, fontSize: FONT_SIZE.md, fontWeight: 'bold' },
-  onlineDot: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 13,
-    height: 13,
-    borderRadius: 7,
-    backgroundColor: CORES.laranja,
-    borderWidth: 2,
-    borderColor: CORES.backgroundCard,
-  },
-  conversaInfo:   { flex: 1 },
-  conversaHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 },
-  conversaNome:   { color: CORES.branco, fontSize: FONT_SIZE.md, fontWeight: '600', flex: 1, marginRight: 8 },
-  conversaHora:   { color: CORES.cinza, fontSize: FONT_SIZE.xs },
-  conversaFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  conversaUltima: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm, flex: 1, marginRight: 8 },
-  badge: {
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: CORES.laranja,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-  },
-  badgeText: { color: CORES.branco, fontSize: 11, fontWeight: 'bold' },
+    // ── Card de conversa ──────────────────────────────────────
+    conversaCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: cores.backgroundCard,
+      borderRadius: RADIUS.md,
+      padding: SPACING.md,
+      gap: SPACING.md,
+    },
+    avatarWrap:  { position: 'relative' },
+    avatar: {
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      backgroundColor: cores.background,
+      justifyContent: 'center',
+      alignItems: 'center',
+      overflow: 'hidden',
+    },
+    avatarAtivo: { backgroundColor: cores.roxo },
+    avatarText:  { color: cores.branco, fontSize: FONT_SIZE.md, fontWeight: 'bold' },
+    onlineDot: {
+      position: 'absolute',
+      bottom: 2,
+      right: 2,
+      width: 13,
+      height: 13,
+      borderRadius: 7,
+      backgroundColor: cores.laranja,
+      borderWidth: 2,
+      borderColor: cores.backgroundCard,
+    },
+    conversaInfo:   { flex: 1 },
+    conversaHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 },
+    conversaNome:   { color: cores.branco, fontSize: FONT_SIZE.md, fontWeight: '600', flex: 1, marginRight: 8 },
+    conversaHora:   { color: cores.cinza, fontSize: FONT_SIZE.xs },
+    conversaFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    conversaUltima: { color: cores.cinzaClaro, fontSize: FONT_SIZE.sm, flex: 1, marginRight: 8 },
+    badge: {
+      minWidth: 20,
+      height: 20,
+      borderRadius: 10,
+      backgroundColor: cores.laranja,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 6,
+    },
+    badgeText: { color: cores.branco, fontSize: 11, fontWeight: 'bold' },
 
-  // ── Empty state ───────────────────────────────────────────
-  emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 80, gap: SPACING.sm },
-  emptyTitle: { color: CORES.branco, fontSize: FONT_SIZE.lg, fontWeight: 'bold', textAlign: 'center' },
-  emptyText:  { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm, textAlign: 'center', maxWidth: 280, lineHeight: 22 },
+    // ── Empty state ───────────────────────────────────────────
+    emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 80, gap: SPACING.sm },
+    emptyTitle: { color: cores.branco, fontSize: FONT_SIZE.lg, fontWeight: 'bold', textAlign: 'center' },
+    emptyText:  { color: cores.cinzaClaro, fontSize: FONT_SIZE.sm, textAlign: 'center', maxWidth: 280, lineHeight: 22 },
 
-  // ── ChatModal: container e header ─────────────────────────
-  chatContainer: {
-    flex: 1,
-    backgroundColor: CORES.background,
-    paddingTop: Platform.OS === 'web' ? 0 : 0,
-  },
-  chatHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'web' ? 16 : 50,
-    paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.md,
-    backgroundColor: CORES.backgroundCard,
-    borderBottomWidth: 1,
-    borderBottomColor: CORES.border,
-  },
-  chatHeaderInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    flex: 1,
-    marginHorizontal: SPACING.md,
-  },
-  chatAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    overflow: 'hidden',
-  },
-  chatAvatarFallback: {
-    backgroundColor: CORES.roxo,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  chatAvatarText:  { color: CORES.branco, fontSize: 14, fontWeight: 'bold' },
-  chatHeaderNome:  { color: CORES.branco, fontSize: FONT_SIZE.md, fontWeight: '600' },
-  chatHeaderSub:   { color: CORES.cinzaClaro, fontSize: 11, marginTop: 1 },
+    // ── ChatModal: container e header ─────────────────────────
+    chatContainer: {
+      flex: 1,
+      backgroundColor: cores.background,
+      paddingTop: Platform.OS === 'web' ? 0 : 0,
+    },
+    chatHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingTop: Platform.OS === 'web' ? 16 : 50,
+      paddingHorizontal: SPACING.lg,
+      paddingBottom: SPACING.md,
+      backgroundColor: cores.backgroundCard,
+      borderBottomWidth: 1,
+      borderBottomColor: cores.border,
+    },
+    chatHeaderInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: SPACING.sm,
+      flex: 1,
+      marginHorizontal: SPACING.md,
+    },
+    chatAvatar: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      overflow: 'hidden',
+    },
+    chatAvatarFallback: {
+      backgroundColor: cores.roxo,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    chatAvatarText:  { color: cores.branco, fontSize: 14, fontWeight: 'bold' },
+    chatHeaderNome:  { color: cores.branco, fontSize: FONT_SIZE.md, fontWeight: '600' },
+    chatHeaderSub:   { color: cores.cinzaClaro, fontSize: 11, marginTop: 1 },
 
-  // ── ChatModal: mensagens ──────────────────────────────────
-  chatMessages: {
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-    gap: SPACING.sm,
-    flexGrow: 1,
-  },
-  emptyChat: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 80,
-    gap: SPACING.sm,
-  },
-  emptyChatText: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm, textAlign: 'center', maxWidth: 240 },
+    // ── ChatModal: mensagens ──────────────────────────────────
+    chatMessages: {
+      paddingHorizontal: SPACING.lg,
+      paddingVertical: SPACING.md,
+      gap: SPACING.sm,
+      flexGrow: 1,
+    },
+    emptyChat: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingTop: 80,
+      gap: SPACING.sm,
+    },
+    emptyChatText: { color: cores.cinzaClaro, fontSize: FONT_SIZE.sm, textAlign: 'center', maxWidth: 240 },
 
-  msgRow:   { flexDirection: 'row', alignItems: 'flex-end', gap: SPACING.xs },
-  msgRowEu: { justifyContent: 'flex-end' },
+    msgRow:   { flexDirection: 'row', alignItems: 'flex-end', gap: SPACING.xs },
+    msgRowEu: { justifyContent: 'flex-end' },
 
-  msgAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    overflow: 'hidden',
-    marginBottom: 4,
-  },
-  msgAvatarFallback: { backgroundColor: CORES.backgroundCard, justifyContent: 'center', alignItems: 'center' },
-  msgAvatarText: { color: CORES.branco, fontSize: 10, fontWeight: 'bold' },
+    msgAvatar: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      overflow: 'hidden',
+      marginBottom: 4,
+    },
+    msgAvatarFallback: { backgroundColor: cores.backgroundCard, justifyContent: 'center', alignItems: 'center' },
+    msgAvatarText: { color: cores.branco, fontSize: 10, fontWeight: 'bold' },
 
-  msgBubble: {
-    maxWidth: '72%',
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-  },
-  msgBubbleOutro:   { backgroundColor: CORES.backgroundCard, borderBottomLeftRadius: 4 },
-  msgBubbleEu:      { backgroundColor: CORES.roxo, borderBottomRightRadius: 4 },
-  msgBubblePendente:{ opacity: 0.7 },
+    msgBubble: {
+      maxWidth: '72%',
+      borderRadius: RADIUS.md,
+      paddingHorizontal: SPACING.md,
+      paddingVertical: SPACING.sm,
+    },
+    msgBubbleOutro:   { backgroundColor: cores.backgroundCard, borderBottomLeftRadius: 4 },
+    msgBubbleEu:      { backgroundColor: cores.roxo, borderBottomRightRadius: 4 },
+    msgBubblePendente:{ opacity: 0.7 },
 
-  msgTexto:   { color: CORES.branco, fontSize: FONT_SIZE.sm, lineHeight: 20 },
-  msgMeta:    { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 3 },
-  msgHorario: { color: 'rgba(255,255,255,0.55)', fontSize: 10 },
+    msgTexto:   { color: cores.branco, fontSize: FONT_SIZE.sm, lineHeight: 20 },
+    msgMeta:    { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 3 },
+    msgHorario: { color: 'rgba(255,255,255,0.55)', fontSize: 10 },
 
-  // ── ChatModal: input ──────────────────────────────────────
-  alertaSemantico: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.xs,
-  },
-  alertaBloqueado: { backgroundColor: CORES.erro + '18' },
-  alertaAviso:     { backgroundColor: '#F59E0B18' },
-  alertaText:      { flex: 1, fontSize: 11, lineHeight: 16 },
+    // ── ChatModal: input ──────────────────────────────────────
+    alertaSemantico: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: SPACING.lg,
+      paddingVertical: SPACING.xs,
+    },
+    alertaBloqueado: { backgroundColor: cores.erro + '18' },
+    alertaAviso:     { backgroundColor: '#F59E0B18' },
+    alertaText:      { flex: 1, fontSize: 11, lineHeight: 16 },
 
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
-    gap: SPACING.sm,
-    backgroundColor: CORES.backgroundCard,
-    borderTopWidth: 1,
-    borderTopColor: CORES.border,
-    paddingBottom: Platform.OS === 'ios' ? SPACING.lg : SPACING.sm,
-  },
-  inputRowBloqueado: { borderTopColor: CORES.erro },
-  chatInput: {
-    flex: 1,
-    backgroundColor: CORES.background,
-    borderRadius: RADIUS.lg,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: Platform.OS === 'ios' ? 10 : 8,
-    color: CORES.branco,
-    fontSize: FONT_SIZE.sm,
-    maxHeight: 100,
-    lineHeight: 20,
-  },
-  sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: CORES.roxo,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sendBtnDisabled: { backgroundColor: CORES.cinza },
-});
+    inputRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      paddingHorizontal: SPACING.lg,
+      paddingVertical: SPACING.sm,
+      gap: SPACING.sm,
+      backgroundColor: cores.backgroundCard,
+      borderTopWidth: 1,
+      borderTopColor: cores.border,
+      paddingBottom: Platform.OS === 'ios' ? SPACING.lg : SPACING.sm,
+    },
+    inputRowBloqueado: { borderTopColor: cores.erro },
+    chatInput: {
+      flex: 1,
+      backgroundColor: cores.background,
+      borderRadius: RADIUS.lg,
+      paddingHorizontal: SPACING.md,
+      paddingVertical: Platform.OS === 'ios' ? 10 : 8,
+      color: cores.branco,
+      fontSize: FONT_SIZE.sm,
+      maxHeight: 100,
+      lineHeight: 20,
+    },
+    sendBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: cores.roxo,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    sendBtnDisabled: { backgroundColor: cores.cinza },
+  });
+}

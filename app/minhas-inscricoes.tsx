@@ -19,7 +19,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
+import { FONT_SIZE, RADIUS, SPACING, type Cores } from '@/constants/theme';
+import { useCores } from '@/contexts/TemaContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { inscricoesService, InscricaoComEvento } from '@/services/inscricoes';
 
@@ -55,9 +56,11 @@ interface CardProps {
   item: InscricaoComEvento;
   onCancelar: (item: InscricaoComEvento) => void;
   cancelando: boolean;
+  cores: Cores;
+  styles: ReturnType<typeof createStyles>;
 }
 
-function InscricaoCard({ item, onCancelar, cancelando }: CardProps) {
+function InscricaoCard({ item, onCancelar, cancelando, cores, styles }: CardProps) {
   const ev = item.eventos;
   const emoji = ICONE_CATEGORIA[ev.categoria] ?? '📅';
 
@@ -84,18 +87,18 @@ function InscricaoCard({ item, onCancelar, cancelando }: CardProps) {
         </Text>
 
         <View style={styles.cardRow}>
-          <Ionicons name="location-outline" size={13} color={CORES.textSecondary} />
+          <Ionicons name="location-outline" size={13} color={cores.textSecondary} />
           <Text style={styles.cardMeta} numberOfLines={1}>{ev.local}</Text>
         </View>
 
         <View style={styles.cardRow}>
-          <Ionicons name="calendar-outline" size={13} color={CORES.textSecondary} />
+          <Ionicons name="calendar-outline" size={13} color={cores.textSecondary} />
           <Text style={styles.cardMeta}>{formatarData(ev.data_inicio)}</Text>
         </View>
 
         <View style={styles.cardRow}>
-          <Ionicons name="checkmark-circle" size={13} color={CORES.sucesso ?? '#4CAF50'} />
-          <Text style={[styles.cardMeta, { color: CORES.sucesso ?? '#4CAF50' }]}>
+          <Ionicons name="checkmark-circle" size={13} color={cores.sucesso ?? '#4CAF50'} />
+          <Text style={[styles.cardMeta, { color: cores.sucesso ?? '#4CAF50' }]}>
             Inscrito
           </Text>
         </View>
@@ -109,9 +112,9 @@ function InscricaoCard({ item, onCancelar, cancelando }: CardProps) {
         accessibilityLabel="Cancelar inscrição"
       >
         {cancelando ? (
-          <ActivityIndicator size="small" color={CORES.erro ?? '#F44336'} />
+          <ActivityIndicator size="small" color={cores.erro ?? '#F44336'} />
         ) : (
-          <Ionicons name="close-circle-outline" size={22} color={CORES.erro ?? '#F44336'} />
+          <Ionicons name="close-circle-outline" size={22} color={cores.erro ?? '#F44336'} />
         )}
       </TouchableOpacity>
     </View>
@@ -121,6 +124,8 @@ function InscricaoCard({ item, onCancelar, cancelando }: CardProps) {
 // ── Tela principal ────────────────────────────────────────────────
 
 export default function MinhasInscricoesScreen() {
+  const cores = useCores();
+  const styles = createStyles(cores);
   const router = useRouter();
   const { user } = useAuth();
 
@@ -188,7 +193,7 @@ export default function MinhasInscricoesScreen() {
           style={styles.btnVoltar}
           accessibilityLabel="Voltar"
         >
-          <Ionicons name="arrow-back" size={24} color={CORES.texto} />
+          <Ionicons name="arrow-back" size={24} color={cores.texto} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Minhas Inscrições</Text>
         <View style={{ width: 40 }} />
@@ -197,7 +202,7 @@ export default function MinhasInscricoesScreen() {
       {/* Loading inicial */}
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={CORES.roxo} />
+          <ActivityIndicator size="large" color={cores.roxo} />
         </View>
       ) : inscricoes.length === 0 ? (
         /* Estado vazio */
@@ -225,6 +230,8 @@ export default function MinhasInscricoesScreen() {
               item={item}
               onCancelar={handleCancelar}
               cancelando={cancelando === item.id}
+              cores={cores}
+              styles={styles}
             />
           )}
           contentContainerStyle={styles.listContent}
@@ -240,122 +247,124 @@ export default function MinhasInscricoesScreen() {
 
 // ── Estilos ───────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: CORES.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.xl + 12,
-    paddingBottom: SPACING.md,
-    backgroundColor: CORES.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: CORES.border,
-  },
-  btnVoltar: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: FONT_SIZE.lg,
-    fontWeight: '700',
-    color: CORES.texto,
-  },
+function createStyles(cores: Cores) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: cores.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: SPACING.md,
+      paddingTop: SPACING.xl + 12,
+      paddingBottom: SPACING.md,
+      backgroundColor: cores.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: cores.border,
+    },
+    btnVoltar: {
+      width: 40,
+      height: 40,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    headerTitle: {
+      fontSize: FONT_SIZE.lg,
+      fontWeight: '700',
+      color: cores.texto,
+    },
 
-  // Loading / vazio
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.xl,
-  },
-  emptyEmoji: {
-    fontSize: 56,
-    marginBottom: SPACING.md,
-  },
-  emptyTitle: {
-    fontSize: FONT_SIZE.lg,
-    fontWeight: '700',
-    color: CORES.texto,
-    marginBottom: SPACING.xs,
-    textAlign: 'center',
-  },
-  emptyText: {
-    fontSize: FONT_SIZE.sm,
-    color: CORES.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: SPACING.lg,
-  },
-  btnExplorar: {
-    backgroundColor: CORES.roxo,
-    borderRadius: RADIUS.md,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.xl,
-  },
-  btnExplorarText: {
-    color: '#FFF',
-    fontWeight: '700',
-    fontSize: FONT_SIZE.md,
-  },
+    // Loading / vazio
+    centered: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: SPACING.xl,
+    },
+    emptyEmoji: {
+      fontSize: 56,
+      marginBottom: SPACING.md,
+    },
+    emptyTitle: {
+      fontSize: FONT_SIZE.lg,
+      fontWeight: '700',
+      color: cores.texto,
+      marginBottom: SPACING.xs,
+      textAlign: 'center',
+    },
+    emptyText: {
+      fontSize: FONT_SIZE.sm,
+      color: cores.textSecondary,
+      textAlign: 'center',
+      lineHeight: 20,
+      marginBottom: SPACING.lg,
+    },
+    btnExplorar: {
+      backgroundColor: cores.roxo,
+      borderRadius: RADIUS.md,
+      paddingVertical: SPACING.sm,
+      paddingHorizontal: SPACING.xl,
+    },
+    btnExplorarText: {
+      color: '#FFF',
+      fontWeight: '700',
+      fontSize: FONT_SIZE.md,
+    },
 
-  // Lista
-  listContent: {
-    padding: SPACING.md,
-    paddingBottom: SPACING.xl,
-  },
+    // Lista
+    listContent: {
+      padding: SPACING.md,
+      paddingBottom: SPACING.xl,
+    },
 
-  // Card
-  card: {
-    flexDirection: 'row',
-    backgroundColor: CORES.surface,
-    borderRadius: RADIUS.md,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: CORES.border,
-  },
-  cardImg: {
-    width: 90,
-    height: 90,
-  },
-  cardImgPlaceholder: {
-    backgroundColor: CORES.roxo + '22',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cardImgEmoji: {
-    fontSize: 30,
-  },
-  cardBody: {
-    flex: 1,
-    padding: SPACING.sm,
-    gap: 3,
-  },
-  cardNome: {
-    fontSize: FONT_SIZE.md,
-    fontWeight: '700',
-    color: CORES.texto,
-    marginBottom: 2,
-  },
-  cardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  cardMeta: {
-    fontSize: FONT_SIZE.xs,
-    color: CORES.textSecondary,
-    flexShrink: 1,
-  },
-  btnCancelar: {
-    width: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});
+    // Card
+    card: {
+      flexDirection: 'row',
+      backgroundColor: cores.surface,
+      borderRadius: RADIUS.md,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: cores.border,
+    },
+    cardImg: {
+      width: 90,
+      height: 90,
+    },
+    cardImgPlaceholder: {
+      backgroundColor: cores.roxo + '22',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    cardImgEmoji: {
+      fontSize: 30,
+    },
+    cardBody: {
+      flex: 1,
+      padding: SPACING.sm,
+      gap: 3,
+    },
+    cardNome: {
+      fontSize: FONT_SIZE.md,
+      fontWeight: '700',
+      color: cores.texto,
+      marginBottom: 2,
+    },
+    cardRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    cardMeta: {
+      fontSize: FONT_SIZE.xs,
+      color: cores.textSecondary,
+      flexShrink: 1,
+    },
+    btnCancelar: {
+      width: 44,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+  });
+}

@@ -9,7 +9,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
+import { FONT_SIZE, RADIUS, SPACING, type Cores } from '@/constants/theme';
+import { useCores } from '@/contexts/TemaContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEventos } from '@/contexts/EventosContext';
 import { _demoPendentes } from '@/services/eventos';
@@ -36,6 +37,8 @@ const TIPO_LABEL: Record<string, string> = {
 };
 
 export default function PerfilScreen() {
+  const cores = useCores();
+  const styles = createStyles(cores);
   const router = useRouter();
   const { user, logout, updateUser } = useAuth();
   const { favoritos, eventos, carregarEventos } = useEventos();
@@ -80,14 +83,14 @@ export default function PerfilScreen() {
         {/* Badge tipo de conta */}
         <View style={styles.tipoBadge}>
           {user?.tipo_conta === 'pj' ? (
-            <MaterialCommunityIcons name="office-building" size={14} color={CORES.laranja} />
+            <MaterialCommunityIcons name="office-building" size={14} color={cores.laranja} />
           ) : user?.tipo_conta === 'gov' ? (
-            <Ionicons name="shield-checkmark" size={14} color={CORES.sucesso} />
+            <Ionicons name="shield-checkmark" size={14} color={cores.sucesso} />
           ) : (
-            <Ionicons name="person" size={14} color={CORES.roxoClaro} />
+            <Ionicons name="person" size={14} color={cores.roxoClaro} />
           )}
           <Text style={styles.tipoBadgeText}>{TIPO_LABEL[user?.tipo_conta || 'pf']}</Text>
-          {user?.verificado && <Ionicons name="checkmark-circle" size={14} color={CORES.sucesso} />}
+          {user?.verificado && <Ionicons name="checkmark-circle" size={14} color={cores.sucesso} />}
         </View>
       </View>
 
@@ -112,9 +115,9 @@ export default function PerfilScreen() {
       <View style={styles.menu}>
         {MENU_ITEMS.map((item, i) => (
           <TouchableOpacity key={i} style={styles.menuItem} onPress={() => item.route ? router.push(item.route as any) : undefined}>
-            <Ionicons name={item.icon as any} size={22} color={CORES.branco} />
+            <Ionicons name={item.icon as any} size={22} color={cores.branco} />
             <Text style={styles.menuLabel}>{item.label}</Text>
-            <Ionicons name="chevron-forward" size={18} color={CORES.cinza} />
+            <Ionicons name="chevron-forward" size={18} color={cores.cinza} />
           </TouchableOpacity>
         ))}
 
@@ -126,24 +129,24 @@ export default function PerfilScreen() {
               style={[styles.menuItem, styles.adminItem]}
               onPress={() => router.push('/admin/moderacao')}
             >
-              <Ionicons name="shield-checkmark" size={22} color={CORES.laranja} />
-              <Text style={[styles.menuLabel, { color: CORES.laranja }]}>Moderação</Text>
-              <Ionicons name="chevron-forward" size={18} color={CORES.laranja} />
+              <Ionicons name="shield-checkmark" size={22} color={cores.laranja} />
+              <Text style={[styles.menuLabel, { color: cores.laranja }]}>Moderação</Text>
+              <Ionicons name="chevron-forward" size={18} color={cores.laranja} />
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.menuItem, styles.adminItem, { borderColor: CORES.roxoClaro }]}
+              style={[styles.menuItem, styles.adminItem, { borderColor: cores.roxoClaro }]}
               onPress={() => router.push('/admin/dashboard')}
             >
-              <Ionicons name="stats-chart" size={22} color={CORES.roxoClaro} />
-              <Text style={[styles.menuLabel, { color: CORES.roxoClaro }]}>Dashboard Analítico</Text>
-              <Ionicons name="chevron-forward" size={18} color={CORES.roxoClaro} />
+              <Ionicons name="stats-chart" size={22} color={cores.roxoClaro} />
+              <Text style={[styles.menuLabel, { color: cores.roxoClaro }]}>Dashboard Analítico</Text>
+              <Ionicons name="chevron-forward" size={18} color={cores.roxoClaro} />
             </TouchableOpacity>
           </View>
         )}
       </View>
 
       <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-        <Ionicons name="log-out-outline" size={20} color={CORES.erro} />
+        <Ionicons name="log-out-outline" size={20} color={cores.erro} />
         <Text style={styles.logoutText}>Sair</Text>
       </TouchableOpacity>
 
@@ -152,32 +155,34 @@ export default function PerfilScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: CORES.background, paddingTop: 60 },
-  scrollContent: { paddingHorizontal: SPACING.lg, paddingBottom: 100 },
-  titulo: { fontSize: FONT_SIZE.xxl, fontWeight: 'bold', color: CORES.branco, marginBottom: SPACING.lg },
+function createStyles(cores: Cores) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: cores.background, paddingTop: 60 },
+    scrollContent: { paddingHorizontal: SPACING.lg, paddingBottom: 100 },
+    titulo: { fontSize: FONT_SIZE.xxl, fontWeight: 'bold', color: cores.branco, marginBottom: SPACING.lg },
 
-  avatarSection: { alignItems: 'center', marginBottom: SPACING.lg, gap: SPACING.sm },
-  userName: { color: CORES.branco, fontSize: FONT_SIZE.lg, fontWeight: 'bold', marginTop: 4 },
-  userHandle: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm, marginTop: 4 },
-  tipoBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: SPACING.sm, backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs },
-  tipoBadgeText: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.xs },
+    avatarSection: { alignItems: 'center', marginBottom: SPACING.lg, gap: SPACING.sm },
+    userName: { color: cores.branco, fontSize: FONT_SIZE.lg, fontWeight: 'bold', marginTop: 4 },
+    userHandle: { color: cores.cinzaClaro, fontSize: FONT_SIZE.sm, marginTop: 4 },
+    tipoBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: SPACING.sm, backgroundColor: cores.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs },
+    tipoBadgeText: { color: cores.cinzaClaro, fontSize: FONT_SIZE.xs },
 
-  statsRow: { flexDirection: 'row', backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.lg, justifyContent: 'space-around', alignItems: 'center' },
-  statItem: { alignItems: 'center', flex: 1 },
-  statValue: { color: CORES.branco, fontSize: FONT_SIZE.xl, fontWeight: 'bold' },
-  statLabel: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.xs, marginTop: 2 },
-  statDivider: { width: 1, height: 32, backgroundColor: CORES.border },
+    statsRow: { flexDirection: 'row', backgroundColor: cores.backgroundCard, borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.lg, justifyContent: 'space-around', alignItems: 'center' },
+    statItem: { alignItems: 'center', flex: 1 },
+    statValue: { color: cores.branco, fontSize: FONT_SIZE.xl, fontWeight: 'bold' },
+    statLabel: { color: cores.cinzaClaro, fontSize: FONT_SIZE.xs, marginTop: 2 },
+    statDivider: { width: 1, height: 32, backgroundColor: cores.border },
 
-  menu: { gap: 4 },
-  menuItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.md, padding: SPACING.md, gap: SPACING.md },
-  adminItem: { borderWidth: 1, borderColor: CORES.laranja, marginTop: 4 },
-  adminSection: { marginTop: SPACING.md, gap: 4 },
-  adminSectionLabel: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 },
-  menuLabel: { flex: 1, color: CORES.branco, fontSize: FONT_SIZE.md },
+    menu: { gap: 4 },
+    menuItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: cores.backgroundCard, borderRadius: RADIUS.md, padding: SPACING.md, gap: SPACING.md },
+    adminItem: { borderWidth: 1, borderColor: cores.laranja, marginTop: 4 },
+    adminSection: { marginTop: SPACING.md, gap: 4 },
+    adminSectionLabel: { color: cores.cinzaClaro, fontSize: FONT_SIZE.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 },
+    menuLabel: { flex: 1, color: cores.branco, fontSize: FONT_SIZE.md },
 
-  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, marginTop: SPACING.xl, padding: SPACING.md },
-  logoutText: { color: CORES.erro, fontSize: FONT_SIZE.md, fontWeight: '600' },
+    logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, marginTop: SPACING.xl, padding: SPACING.md },
+    logoutText: { color: cores.erro, fontSize: FONT_SIZE.md, fontWeight: '600' },
 
-  version: { color: CORES.cinza, fontSize: FONT_SIZE.xs, textAlign: 'center', marginTop: SPACING.md },
-});
+    version: { color: cores.cinza, fontSize: FONT_SIZE.xs, textAlign: 'center', marginTop: SPACING.md },
+  });
+}

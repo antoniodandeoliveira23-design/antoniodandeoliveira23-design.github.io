@@ -14,7 +14,8 @@ import {
   View,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
+import { FONT_SIZE, RADIUS, SPACING, type Cores } from '@/constants/theme';
+import { useCores } from '@/contexts/TemaContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEventos } from '@/contexts/EventosContext';
 import ModalDenuncia from '@/components/ModalDenuncia';
@@ -60,6 +61,8 @@ const FILTROS_TEMPO: { value: FiltroTemporal; label: string; icon: string }[] = 
 ];
 
 export default function HomeScreen() {
+  const cores = useCores();
+  const styles = createStyles(cores);
   const router = useRouter();
   const { user } = useAuth();
   const { eventos, loading, carregarEventos, buscarEventos, buscarPorRaio, filtroCategoria, filtrarPorCategoria, favoritos, favoritarEvento, desfavoritarEvento } = useEventos();
@@ -234,22 +237,22 @@ export default function HomeScreen() {
       <TouchableOpacity style={styles.eventCard} onPress={() => abrirEvento(item)}>
         <View style={styles.eventCardTop}>
           <View style={styles.eventIconCircle}>
-            <Ionicons name={(ICON_MAP[item.categoria] || 'calendar') as any} size={20} color={CORES.laranja} />
+            <Ionicons name={(ICON_MAP[item.categoria] || 'calendar') as any} size={20} color={cores.laranja} />
           </View>
           <TouchableOpacity
             style={styles.favBtn}
             onPress={() => isFav ? desfavoritarEvento(item.id) : favoritarEvento(item.id)}
           >
-            <Ionicons name={isFav ? 'heart' : 'heart-outline'} size={18} color={isFav ? CORES.erro : CORES.cinza} />
+            <Ionicons name={isFav ? 'heart' : 'heart-outline'} size={18} color={isFav ? cores.erro : cores.cinza} />
           </TouchableOpacity>
         </View>
         <Text style={styles.eventCardName} numberOfLines={2}>{item.nome}</Text>
         <View style={styles.eventCardInfoRow}>
-          <Ionicons name="location-outline" size={12} color={CORES.cinzaClaro} />
+          <Ionicons name="location-outline" size={12} color={cores.cinzaClaro} />
           <Text style={styles.eventCardLocal} numberOfLines={1}>{item.local}</Text>
         </View>
         <View style={styles.eventCardInfoRow}>
-          <Ionicons name="calendar-outline" size={12} color={CORES.laranja} />
+          <Ionicons name="calendar-outline" size={12} color={cores.laranja} />
           <Text style={styles.eventCardDate}>
             {new Date(item.data_inicio).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
           </Text>
@@ -257,13 +260,13 @@ export default function HomeScreen() {
         <View style={styles.cardBadgeRow}>
           {item.destaque && (
             <View style={styles.destaqueBadge}>
-              <Ionicons name="star" size={10} color={CORES.laranja} />
+              <Ionicons name="star" size={10} color={cores.laranja} />
               <Text style={styles.destaqueText}>Destaque</Text>
             </View>
           )}
           {item.exclusivo_mulheres && user?.genero === 'feminino' && (
             <View style={styles.femaleBadge}>
-              <Ionicons name="female" size={10} color={CORES.branco} />
+              <Ionicons name="female" size={10} color={cores.branco} />
               <Text style={styles.femaleBadgeText}>Exclusivo</Text>
             </View>
           )}
@@ -282,7 +285,7 @@ export default function HomeScreen() {
           </View>
           <View style={styles.headerRight}>
             <TouchableOpacity style={styles.headerBtn} onPress={() => router.push('/notificacoes')}>
-              <Ionicons name="notifications-outline" size={22} color={CORES.branco} />
+              <Ionicons name="notifications-outline" size={22} color={cores.branco} />
               <View style={styles.notifBadge} />
             </TouchableOpacity>
           </View>
@@ -290,11 +293,11 @@ export default function HomeScreen() {
 
         {/* Busca */}
         <View style={styles.searchWrapper}>
-          <Ionicons name="search" size={18} color={CORES.cinza} />
+          <Ionicons name="search" size={18} color={cores.cinza} />
           <TextInput
             style={styles.searchInput}
             placeholder="Buscar eventos ou lugares..."
-            placeholderTextColor={CORES.cinza}
+            placeholderTextColor={cores.cinza}
             value={busca}
             onChangeText={setBusca}
             onSubmitEditing={handleBusca}
@@ -306,12 +309,12 @@ export default function HomeScreen() {
         <TouchableOpacity style={styles.gpsBar} onPress={atualizarLocalizacao} activeOpacity={0.7}>
           <View style={styles.gpsBarLeft}>
             {loadingGeo ? (
-              <ActivityIndicator size="small" color={CORES.laranja} style={{ marginRight: 6 }} />
+              <ActivityIndicator size="small" color={cores.laranja} style={{ marginRight: 6 }} />
             ) : (
               <Ionicons
                 name={posicaoAtual ? 'location' : 'location-outline'}
                 size={14}
-                color={posicaoAtual ? CORES.sucesso : CORES.cinza}
+                color={posicaoAtual ? cores.sucesso : cores.cinza}
                 style={{ marginRight: 6 }}
               />
             )}
@@ -323,7 +326,7 @@ export default function HomeScreen() {
                 : 'Localização desativada · Toque para ativar'}
             </Text>
           </View>
-          <Ionicons name="refresh-outline" size={14} color={CORES.cinza} />
+          <Ionicons name="refresh-outline" size={14} color={cores.cinza} />
         </TouchableOpacity>
 
         {/* Filtros de categoria - scroll horizontal */}
@@ -334,7 +337,7 @@ export default function HomeScreen() {
               style={[styles.filtroChip, filtroCategoria === f.value && styles.filtroChipAtivo]}
               onPress={() => filtrarPorCategoria(f.value)}
             >
-              <Ionicons name={f.icon as any} size={14} color={filtroCategoria === f.value ? CORES.branco : CORES.cinza} />
+              <Ionicons name={f.icon as any} size={14} color={filtroCategoria === f.value ? cores.branco : cores.cinza} />
               <Text style={[styles.filtroChipText, filtroCategoria === f.value && styles.filtroChipTextAtivo]}>{f.label}</Text>
             </TouchableOpacity>
           ))}
@@ -350,7 +353,7 @@ export default function HomeScreen() {
               <Ionicons
                 name="female"
                 size={14}
-                color={filtroSomenteMultheres ? CORES.branco : CORES.laranja}
+                color={filtroSomenteMultheres ? cores.branco : cores.laranja}
               />
               <Text style={[styles.filtroChipText, filtroSomenteMultheres && styles.filtroChipTextAtivo]}>
                 Só para mim
@@ -367,7 +370,7 @@ export default function HomeScreen() {
               style={[styles.tempoChip, filtroTempo === ft.value && styles.tempoChipAtivo]}
               onPress={() => setFiltroTempo(ft.value)}
             >
-              <Ionicons name={ft.icon as any} size={14} color={filtroTempo === ft.value ? CORES.branco : CORES.cinzaClaro} />
+              <Ionicons name={ft.icon as any} size={14} color={filtroTempo === ft.value ? cores.branco : cores.cinzaClaro} />
               <Text style={[styles.tempoText, filtroTempo === ft.value && styles.tempoTextAtivo]}>{ft.label}</Text>
             </TouchableOpacity>
           ))}
@@ -383,7 +386,7 @@ export default function HomeScreen() {
             />
           ) : (
             <View style={styles.mapPlaceholder}>
-              <ActivityIndicator color={CORES.roxo} />
+              <ActivityIndicator color={cores.roxo} />
             </View>
           )}
           <View style={styles.mapOverlay}>
@@ -400,7 +403,7 @@ export default function HomeScreen() {
         </View>
 
         {loading ? (
-          <ActivityIndicator size="large" color={CORES.roxo} style={{ marginTop: SPACING.lg }} />
+          <ActivityIndicator size="large" color={cores.roxo} style={{ marginTop: SPACING.lg }} />
         ) : eventosFiltrados.length === 0 ? (
           <Text style={styles.emptyText}>Nenhum evento encontrado.</Text>
         ) : (
@@ -426,7 +429,7 @@ export default function HomeScreen() {
               {produtos.slice(0, 5).map((prod) => (
                 <TouchableOpacity key={prod.id} style={styles.prodCard} onPress={() => router.push('/produtos')}>
                   <View style={styles.prodIconCircle}>
-                    <Ionicons name="bag-handle" size={20} color={CORES.laranja} />
+                    <Ionicons name="bag-handle" size={20} color={cores.laranja} />
                   </View>
                   <Text style={styles.prodNome} numberOfLines={2}>{prod.nome}</Text>
                   <Text style={styles.prodLocal} numberOfLines={1}>{prod.local}</Text>
@@ -445,7 +448,7 @@ export default function HomeScreen() {
         testID="fab-criar"
         accessibilityRole="button"
       >
-        <Ionicons name="add" size={28} color={CORES.branco} />
+        <Ionicons name="add" size={28} color={cores.branco} />
       </TouchableOpacity>
 
       {/* Modal Evento - Detalhe completo */}
@@ -468,13 +471,13 @@ export default function HomeScreen() {
                       <Ionicons
                         name={(ICON_MAP[eventoSelecionado.categoria] || 'calendar') as any}
                         size={32}
-                        color={CORES.laranja}
+                        color={cores.laranja}
                       />
                     </View>
                   )}
                   {eventoSelecionado.destaque && (
                     <View style={styles.heroDestaque}>
-                      <Ionicons name="star" size={12} color={CORES.laranja} />
+                      <Ionicons name="star" size={12} color={cores.laranja} />
                       <Text style={styles.heroDestaqueText}>Destaque</Text>
                     </View>
                   )}
@@ -497,23 +500,23 @@ export default function HomeScreen() {
                       <Ionicons
                         name={favoritos.includes(eventoSelecionado.id) ? 'heart' : 'heart-outline'}
                         size={20}
-                        color={favoritos.includes(eventoSelecionado.id) ? CORES.erro : CORES.cinzaClaro}
+                        color={favoritos.includes(eventoSelecionado.id) ? cores.erro : cores.cinzaClaro}
                       />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => abrirDenuncia(eventoSelecionado.id)} style={styles.headerActionBtn}>
-                      <Ionicons name="flag-outline" size={18} color={CORES.erro} />
+                      <Ionicons name="flag-outline" size={18} color={cores.erro} />
                     </TouchableOpacity>
                   </View>
                 </View>
 
                 {/* Info rows */}
                 <View style={styles.infoRow}>
-                  <Ionicons name="location-outline" size={16} color={CORES.roxoClaro} />
+                  <Ionicons name="location-outline" size={16} color={cores.roxoClaro} />
                   <Text style={styles.infoText} numberOfLines={1}>{eventoSelecionado.local}</Text>
                 </View>
 
                 <View style={styles.infoRow}>
-                  <Ionicons name="calendar-outline" size={16} color={CORES.roxoClaro} />
+                  <Ionicons name="calendar-outline" size={16} color={cores.roxoClaro} />
                   <Text style={styles.infoText}>
                     {new Date(eventoSelecionado.data_inicio).toLocaleDateString('pt-BR', {
                       weekday: 'short', day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit',
@@ -523,8 +526,8 @@ export default function HomeScreen() {
 
                 {eventoSelecionado.exclusivo_mulheres && (
                   <View style={styles.infoRow}>
-                    <Ionicons name="female" size={16} color={CORES.laranja} />
-                    <Text style={[styles.infoText, { color: CORES.laranja }]}>Exclusivo para mulheres</Text>
+                    <Ionicons name="female" size={16} color={cores.laranja} />
+                    <Text style={[styles.infoText, { color: cores.laranja }]}>Exclusivo para mulheres</Text>
                   </View>
                 )}
 
@@ -549,10 +552,10 @@ export default function HomeScreen() {
             {/* Share + Actions */}
             <View style={styles.actionRow}>
               <TouchableOpacity style={styles.actionCircle} onPress={() => eventoSelecionado && compartilharEvento(eventoSelecionado)}>
-                <Ionicons name="share-social" size={18} color={CORES.roxoClaro} />
+                <Ionicons name="share-social" size={18} color={cores.roxoClaro} />
               </TouchableOpacity>
               <TouchableOpacity style={styles.actionCircle} onPress={() => eventoSelecionado && abrirDirecoes(eventoSelecionado)}>
-                <Ionicons name="navigate" size={18} color={CORES.roxoClaro} />
+                <Ionicons name="navigate" size={18} color={cores.roxoClaro} />
               </TouchableOpacity>
             </View>
 
@@ -572,13 +575,13 @@ export default function HomeScreen() {
                   disabled={loadingInscricao === eventoSelecionado.id}
                 >
                   {loadingInscricao === eventoSelecionado.id ? (
-                    <ActivityIndicator size="small" color={CORES.branco} />
+                    <ActivityIndicator size="small" color={cores.branco} />
                   ) : (
                     <>
                       <Ionicons
                         name={inscritos.has(eventoSelecionado.id) ? 'checkmark-circle' : 'ticket'}
                         size={16}
-                        color={CORES.branco}
+                        color={cores.branco}
                       />
                       <Text style={styles.ctaBtnText}>
                         {inscritos.has(eventoSelecionado.id) ? 'Inscrito ✓' : 'Participar'}
@@ -603,115 +606,117 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: CORES.background },
-  scrollContainer: { flex: 1 },
-  scrollContent: { paddingBottom: 100 },
+function createStyles(cores: Cores) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: cores.background },
+    scrollContainer: { flex: 1 },
+    scrollContent: { paddingBottom: 100 },
 
-  // Header
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: Platform.OS === 'web' ? 16 : 50, paddingHorizontal: SPACING.lg, paddingBottom: SPACING.sm },
-  logoBox: { width: 40, height: 40, backgroundColor: CORES.preto, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  logoText: { fontSize: 20, fontWeight: 'bold', color: CORES.branco },
-  headerRight: { flexDirection: 'row', gap: SPACING.sm },
-  headerBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: CORES.backgroundCard, justifyContent: 'center', alignItems: 'center', position: 'relative' },
-  notifBadge: { position: 'absolute', top: 8, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: CORES.laranja },
+    // Header
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: Platform.OS === 'web' ? 16 : 50, paddingHorizontal: SPACING.lg, paddingBottom: SPACING.sm },
+    logoBox: { width: 40, height: 40, backgroundColor: cores.preto, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+    logoText: { fontSize: 20, fontWeight: 'bold', color: cores.branco },
+    headerRight: { flexDirection: 'row', gap: SPACING.sm },
+    headerBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: cores.backgroundCard, justifyContent: 'center', alignItems: 'center', position: 'relative' },
+    notifBadge: { position: 'absolute', top: 8, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: cores.laranja },
 
-  // Search
-  searchWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, marginHorizontal: SPACING.lg, height: 44, gap: SPACING.sm, marginBottom: SPACING.sm },
-  searchInput: { flex: 1, color: CORES.branco, fontSize: FONT_SIZE.sm },
+    // Search
+    searchWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: cores.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, marginHorizontal: SPACING.lg, height: 44, gap: SPACING.sm, marginBottom: SPACING.sm },
+    searchInput: { flex: 1, color: cores.branco, fontSize: FONT_SIZE.sm },
 
-  // GPS status bar
-  gpsBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: SPACING.lg, marginBottom: SPACING.sm, backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.md, paddingVertical: 8 },
-  gpsBarLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  gpsBarText: { color: CORES.cinza, fontSize: 11, fontWeight: '500' },
-  gpsBarTextAtivo: { color: CORES.sucesso },
+    // GPS status bar
+    gpsBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: SPACING.lg, marginBottom: SPACING.sm, backgroundColor: cores.backgroundCard, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.md, paddingVertical: 8 },
+    gpsBarLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+    gpsBarText: { color: cores.cinza, fontSize: 11, fontWeight: '500' },
+    gpsBarTextAtivo: { color: cores.sucesso },
 
-  // Filtros
-  filtrosScroll: { maxHeight: 44, marginBottom: SPACING.sm },
-  filtrosContent: { paddingHorizontal: SPACING.lg, gap: SPACING.sm },
-  filtroChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, height: 36 },
-  filtroChipAtivo: { backgroundColor: CORES.roxo },
-  filtroChipMulher: { backgroundColor: CORES.laranja },
-  filtroChipText: { color: CORES.cinza, fontSize: FONT_SIZE.xs },
-  filtroChipTextAtivo: { color: CORES.branco },
+    // Filtros
+    filtrosScroll: { maxHeight: 44, marginBottom: SPACING.sm },
+    filtrosContent: { paddingHorizontal: SPACING.lg, gap: SPACING.sm },
+    filtroChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: cores.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, height: 36 },
+    filtroChipAtivo: { backgroundColor: cores.roxo },
+    filtroChipMulher: { backgroundColor: cores.laranja },
+    filtroChipText: { color: cores.cinza, fontSize: FONT_SIZE.xs },
+    filtroChipTextAtivo: { color: cores.branco },
 
-  // Filtros temporais
-  tempoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, marginBottom: SPACING.sm, gap: SPACING.xs },
-  tempoChip: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.sm, paddingVertical: 8, borderWidth: 1, borderColor: 'transparent' },
-  tempoChipAtivo: { backgroundColor: CORES.roxo, borderColor: CORES.roxoClaro },
-  tempoText: { color: CORES.cinzaClaro, fontSize: 11, fontWeight: '600' },
-  tempoTextAtivo: { color: CORES.branco },
+    // Filtros temporais
+    tempoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, marginBottom: SPACING.sm, gap: SPACING.xs },
+    tempoChip: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: cores.backgroundCard, borderRadius: RADIUS.sm, paddingVertical: 8, borderWidth: 1, borderColor: 'transparent' },
+    tempoChipAtivo: { backgroundColor: cores.roxo, borderColor: cores.roxoClaro },
+    tempoText: { color: cores.cinzaClaro, fontSize: 11, fontWeight: '600' },
+    tempoTextAtivo: { color: cores.branco },
 
-  // Map
-  mapArea: { marginHorizontal: SPACING.lg, height: 280, borderRadius: RADIUS.lg, marginBottom: SPACING.md, position: 'relative', overflow: 'hidden' },
-  mapPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.lg },
-  mapOverlay: { position: 'absolute', top: SPACING.sm, left: SPACING.sm, zIndex: 1000 },
-  mapBadge: { backgroundColor: CORES.backgroundCard + 'DD', color: CORES.branco, fontSize: FONT_SIZE.xs, fontWeight: '600', paddingHorizontal: SPACING.md, paddingVertical: 4, borderRadius: RADIUS.full, overflow: 'hidden' },
+    // Map
+    mapArea: { marginHorizontal: SPACING.lg, height: 280, borderRadius: RADIUS.lg, marginBottom: SPACING.md, position: 'relative', overflow: 'hidden' },
+    mapPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: cores.backgroundCard, borderRadius: RADIUS.lg },
+    mapOverlay: { position: 'absolute', top: SPACING.sm, left: SPACING.sm, zIndex: 1000 },
+    mapBadge: { backgroundColor: cores.backgroundCard + 'DD', color: cores.branco, fontSize: FONT_SIZE.xs, fontWeight: '600', paddingHorizontal: SPACING.md, paddingVertical: 4, borderRadius: RADIUS.full, overflow: 'hidden' },
 
-  // Section
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.lg, marginBottom: SPACING.sm },
-  sectionTitle: { color: CORES.branco, fontSize: FONT_SIZE.lg, fontWeight: 'bold' },
-  sectionLink: { color: CORES.roxoClaro, fontSize: FONT_SIZE.sm },
+    // Section
+    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.lg, marginBottom: SPACING.sm },
+    sectionTitle: { color: cores.branco, fontSize: FONT_SIZE.lg, fontWeight: 'bold' },
+    sectionLink: { color: cores.roxoClaro, fontSize: FONT_SIZE.sm },
 
-  // Event cards
-  eventList: { paddingHorizontal: SPACING.lg, gap: SPACING.md, paddingBottom: SPACING.sm },
-  eventCard: { backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.lg, padding: SPACING.md, width: 170 },
-  eventCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: SPACING.sm },
-  eventIconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: CORES.background, justifyContent: 'center', alignItems: 'center' },
-  favBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: CORES.background, justifyContent: 'center', alignItems: 'center' },
-  eventCardName: { color: CORES.branco, fontSize: FONT_SIZE.sm, fontWeight: 'bold', marginBottom: 6 },
-  eventCardInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 3 },
-  eventCardLocal: { color: CORES.cinzaClaro, fontSize: 11, flex: 1 },
-  eventCardDate: { color: CORES.laranja, fontSize: 11, fontWeight: '600' },
-  cardBadgeRow: { flexDirection: 'row', gap: 4, flexWrap: 'wrap', marginTop: 6 },
-  destaqueBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: CORES.background, borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3 },
-  destaqueText: { color: CORES.laranja, fontSize: 10, fontWeight: '600' },
-  femaleBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, alignSelf: 'flex-start', backgroundColor: CORES.laranja, borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3 },
-  femaleBadgeText: { color: CORES.branco, fontSize: 10, fontWeight: '700' },
-  emptyText: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm, paddingHorizontal: SPACING.lg },
+    // Event cards
+    eventList: { paddingHorizontal: SPACING.lg, gap: SPACING.md, paddingBottom: SPACING.sm },
+    eventCard: { backgroundColor: cores.backgroundCard, borderRadius: RADIUS.lg, padding: SPACING.md, width: 170 },
+    eventCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: SPACING.sm },
+    eventIconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: cores.background, justifyContent: 'center', alignItems: 'center' },
+    favBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: cores.background, justifyContent: 'center', alignItems: 'center' },
+    eventCardName: { color: cores.branco, fontSize: FONT_SIZE.sm, fontWeight: 'bold', marginBottom: 6 },
+    eventCardInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 3 },
+    eventCardLocal: { color: cores.cinzaClaro, fontSize: 11, flex: 1 },
+    eventCardDate: { color: cores.laranja, fontSize: 11, fontWeight: '600' },
+    cardBadgeRow: { flexDirection: 'row', gap: 4, flexWrap: 'wrap', marginTop: 6 },
+    destaqueBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: cores.background, borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3 },
+    destaqueText: { color: cores.laranja, fontSize: 10, fontWeight: '600' },
+    femaleBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, alignSelf: 'flex-start', backgroundColor: cores.laranja, borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3 },
+    femaleBadgeText: { color: cores.branco, fontSize: 10, fontWeight: '700' },
+    emptyText: { color: cores.cinzaClaro, fontSize: FONT_SIZE.sm, paddingHorizontal: SPACING.lg },
 
-  // Product cards
-  prodCard: { backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.lg, padding: SPACING.md, width: 150 },
-  prodIconCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: CORES.background, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.sm },
-  prodNome: { color: CORES.branco, fontSize: FONT_SIZE.xs, fontWeight: 'bold', marginBottom: 4 },
-  prodLocal: { color: CORES.cinzaClaro, fontSize: 10, marginBottom: 6 },
-  prodPreco: { color: CORES.laranja, fontSize: FONT_SIZE.sm, fontWeight: 'bold' },
+    // Product cards
+    prodCard: { backgroundColor: cores.backgroundCard, borderRadius: RADIUS.lg, padding: SPACING.md, width: 150 },
+    prodIconCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: cores.background, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.sm },
+    prodNome: { color: cores.branco, fontSize: FONT_SIZE.xs, fontWeight: 'bold', marginBottom: 4 },
+    prodLocal: { color: cores.cinzaClaro, fontSize: 10, marginBottom: 6 },
+    prodPreco: { color: cores.laranja, fontSize: FONT_SIZE.sm, fontWeight: 'bold' },
 
-  // FAB
-  fab: { position: 'absolute', right: SPACING.lg, bottom: Platform.OS === 'web' ? 80 : 100, width: 56, height: 56, borderRadius: 28, backgroundColor: CORES.roxo, justifyContent: 'center', alignItems: 'center', elevation: 5, shadowColor: CORES.roxo, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8 },
+    // FAB
+    fab: { position: 'absolute', right: SPACING.lg, bottom: Platform.OS === 'web' ? 80 : 100, width: 56, height: 56, borderRadius: 28, backgroundColor: cores.roxo, justifyContent: 'center', alignItems: 'center', elevation: 5, shadowColor: cores.roxo, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8 },
 
-  // Modal
-  modalOverlay: { flex: 1, backgroundColor: CORES.overlay, justifyContent: 'center', padding: SPACING.lg },
-  modalContent: { backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.xl, padding: SPACING.lg },
-  modalHero: { height: 140, backgroundColor: CORES.background, borderRadius: RADIUS.lg, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.md, position: 'relative', overflow: 'hidden' },
-  modalHeroImg: { width: '100%', height: 140, borderRadius: RADIUS.lg },
-  modalHeroIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: CORES.backgroundCard, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: CORES.laranja },
-  heroDestaque: { position: 'absolute', top: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: CORES.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.sm, paddingVertical: 4 },
-  heroDestaqueText: { color: CORES.laranja, fontSize: 10, fontWeight: '600' },
+    // Modal
+    modalOverlay: { flex: 1, backgroundColor: cores.overlay, justifyContent: 'center', padding: SPACING.lg },
+    modalContent: { backgroundColor: cores.backgroundCard, borderRadius: RADIUS.xl, padding: SPACING.lg },
+    modalHero: { height: 140, backgroundColor: cores.background, borderRadius: RADIUS.lg, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.md, position: 'relative', overflow: 'hidden' },
+    modalHeroImg: { width: '100%', height: 140, borderRadius: RADIUS.lg },
+    modalHeroIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: cores.backgroundCard, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: cores.laranja },
+    heroDestaque: { position: 'absolute', top: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: cores.backgroundCard, borderRadius: RADIUS.full, paddingHorizontal: SPACING.sm, paddingVertical: 4 },
+    heroDestaqueText: { color: cores.laranja, fontSize: 10, fontWeight: '600' },
 
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: SPACING.sm, gap: SPACING.sm },
-  modalTitulo: { color: CORES.branco, fontSize: FONT_SIZE.xl, fontWeight: 'bold', flex: 1 },
-  headerActions: { flexDirection: 'row', gap: SPACING.xs },
-  headerActionBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: CORES.background, justifyContent: 'center', alignItems: 'center' },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: SPACING.sm, gap: SPACING.sm },
+    modalTitulo: { color: cores.branco, fontSize: FONT_SIZE.xl, fontWeight: 'bold', flex: 1 },
+    headerActions: { flexDirection: 'row', gap: SPACING.xs },
+    headerActionBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: cores.background, justifyContent: 'center', alignItems: 'center' },
 
-  infoRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.xs },
-  infoText: { color: CORES.cinzaClaro, fontSize: FONT_SIZE.sm, flex: 1 },
+    infoRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.xs },
+    infoText: { color: cores.cinzaClaro, fontSize: FONT_SIZE.sm, flex: 1 },
 
-  modalDesc: { color: CORES.branco, fontSize: FONT_SIZE.sm, lineHeight: 22, marginTop: SPACING.sm, marginBottom: SPACING.md },
+    modalDesc: { color: cores.branco, fontSize: FONT_SIZE.sm, lineHeight: 22, marginTop: SPACING.sm, marginBottom: SPACING.md },
 
-  badgeRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.md, flexWrap: 'wrap' },
-  catBadge: { backgroundColor: CORES.background, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: 4 },
-  catBadgeText: { color: CORES.roxoClaro, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
-  comercialBadge: { backgroundColor: CORES.laranja + '33', borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: 4 },
-  comercialText: { color: CORES.laranja, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+    badgeRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.md, flexWrap: 'wrap' },
+    catBadge: { backgroundColor: cores.background, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: 4 },
+    catBadgeText: { color: cores.roxoClaro, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+    comercialBadge: { backgroundColor: cores.laranja + '33', borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: 4 },
+    comercialText: { color: cores.laranja, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
 
-  actionRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.sm },
-  actionCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: CORES.background, justifyContent: 'center', alignItems: 'center' },
-  ctaBtnInscrito: { backgroundColor: CORES.sucesso ?? '#4CAF50' },
-  ctaBtnLoading: { opacity: 0.7 },
-  ctaRow: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.sm },
-  ctaSecundario: { flex: 1, paddingVertical: 12, backgroundColor: CORES.background, borderRadius: RADIUS.sm, alignItems: 'center', justifyContent: 'center' },
-  ctaSecundarioText: { color: CORES.cinzaClaro, fontWeight: '600' },
-  ctaBtn: { flex: 2, flexDirection: 'row', gap: 6, paddingVertical: 12, backgroundColor: CORES.roxo, borderRadius: RADIUS.sm, alignItems: 'center', justifyContent: 'center' },
-  ctaBtnText: { color: CORES.branco, fontWeight: 'bold' },
-});
+    actionRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.sm },
+    actionCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: cores.background, justifyContent: 'center', alignItems: 'center' },
+    ctaBtnInscrito: { backgroundColor: cores.sucesso ?? '#4CAF50' },
+    ctaBtnLoading: { opacity: 0.7 },
+    ctaRow: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.sm },
+    ctaSecundario: { flex: 1, paddingVertical: 12, backgroundColor: cores.background, borderRadius: RADIUS.sm, alignItems: 'center', justifyContent: 'center' },
+    ctaSecundarioText: { color: cores.cinzaClaro, fontWeight: '600' },
+    ctaBtn: { flex: 2, flexDirection: 'row', gap: 6, paddingVertical: 12, backgroundColor: cores.roxo, borderRadius: RADIUS.sm, alignItems: 'center', justifyContent: 'center' },
+    ctaBtnText: { color: cores.branco, fontWeight: 'bold' },
+  });
+}
