@@ -61,6 +61,13 @@ async function processar(payload: WebhookPayload): Promise<string> {
 
   switch (table) {
 
+    // ── Novo usuário cadastrado → email de boas-vindas ──────────
+    case 'profiles': {
+      if (payload.type !== 'INSERT') return 'profiles_update_ignorado';
+      await enviarBoasVindas(record);
+      return `boas_vindas_enviado_${record.id}`;
+    }
+
     // ── Anomalias críticas → email + Discord ────────────────────
     case 'anomalia_log': {
       await Promise.all([
@@ -87,6 +94,37 @@ async function processar(payload: WebhookPayload): Promise<string> {
 
     default:
       return `tabela_${table}_ignorada`;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Boas-vindas — dispara ao inserir novo perfil
+// ─────────────────────────────────────────────────────────────────
+
+async function enviarBoasVindas(record: Record<string, unknown>): Promise<void> {
+  const usuarioId = String(record.id ?? '');
+  const nome      = String(record.nome ?? '');
+  if (!usuarioId || !ALERT_SECRET) return;
+
+  try {
+    const resp = await fetch(`${FUNCTIONS_URL}/email-transacional`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization:  `Bearer ${ALERT_SECRET}`,
+      },
+      body: JSON.stringify({
+        tipo:       'boas_vindas',
+        usuario_id: usuarioId,
+        nome,
+      }),
+    });
+    if (!resp.ok) {
+      const txt = await resp.text();
+      console.warn(`[db-webhook] boas_vindas falhou (${resp.status}): ${txt}`);
+    }
+  } catch (err) {
+    console.warn('[db-webhook] boas_vindas erro:', err);
   }
 }
 

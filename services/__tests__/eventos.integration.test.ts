@@ -394,8 +394,18 @@ describe('eventosService.deletar()', () => {
   it('happy path: DELETE executa sem lançar erro', async () => {
     mockAuthGetUser.mockResolvedValue({ data: { user: { id: 'usr-001' } }, error: null });
 
-    const deleteBuilder = makeBuilder({ data: null, error: null });
-    mockFrom.mockReturnValue(deleteBuilder);
+    // deletar() faz 3 consultas em sequência:
+    // 1) from('eventos').select('criador_id') → evento pertence ao usuário
+    // 2) from('profiles').select('tipo_conta') → tipo pf (não-admin)
+    // 3) from('eventos').update({ status: 'expirado' }) → soft delete
+    const eventoBuilder  = makeBuilder({ data: { criador_id: 'usr-001' }, error: null });
+    const profileBuilder = makeBuilder({ data: { tipo_conta: 'pf' },     error: null });
+    const updateBuilder  = makeBuilder({ data: null, error: null });
+
+    mockFrom
+      .mockReturnValueOnce(eventoBuilder)
+      .mockReturnValueOnce(profileBuilder)
+      .mockReturnValueOnce(updateBuilder);
 
     await expect(eventosService.deletar('evt-001')).resolves.not.toThrow();
   });

@@ -16,7 +16,7 @@ Deno.env.set('DENO_TESTING', '1');
 Deno.env.set('SUPABASE_URL', 'https://test.supabase.co');
 Deno.env.set('SUPABASE_SERVICE_ROLE_KEY', 'test-svc');
 Deno.env.set('ALERT_SECRET', 'test-alert-secret');
-Deno.env.set('ASAAS_API_KEY', 'test-asaas-key');
+Deno.env.set('ASAAS_ACCESS_TOKEN', 'test-asaas-key');
 Deno.env.set('ASAAS_ENV', 'sandbox');
 
 const { handler } = await import('./index.ts');
@@ -32,6 +32,29 @@ function stubFetch(cfgs: FetchCfg[]): () => void {
   const original = globalThis.fetch;
   (globalThis as any).fetch = () => {
     const cfg = cfgs[idx++] ?? { body: {}, status: 200 };
+    return Promise.resolve(
+      new Response(JSON.stringify(cfg.body), {
+        status: cfg.status ?? 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+  };
+  return () => { (globalThis as any).fetch = original; };
+}
+
+/**
+ * URL-based stub: cada padrão de URL retorna sua resposta configurada.
+ * Resolve o problema de índices misalinhados quando chamadas fetch
+ * ocorrem em ordem diferente da esperada (ex: Promise.all).
+ */
+type UrlFetchMap = Record<string, { body: unknown; status?: number }>;
+
+function stubFetchByUrl(urlMap: UrlFetchMap, fallback: FetchCfg = { body: {}, status: 200 }): () => void {
+  const original = globalThis.fetch;
+  (globalThis as any).fetch = (url: string | URL) => {
+    const urlStr = url.toString();
+    const key = Object.keys(urlMap).find(k => urlStr.includes(k));
+    const cfg = key ? urlMap[key] : fallback;
     return Promise.resolve(
       new Response(JSON.stringify(cfg.body), {
         status: cfg.status ?? 200,
@@ -144,31 +167,55 @@ Deno.test({ name: 'metodo com valor inválido retorna 400 ou 422', ...NO_LEAK, a
 
 // ── Happy paths ────────────────────────────────────────────────────
 
+// ── Sequência real de chamadas fetch no handler (com FAKE_JWT): ────────
+//  0: validarAuth → auth.getUser(jwt)
+//  1: validarAuth → from('profiles').select('tipo_conta').single()
+//  2: from('planos').select('id, nome, preco, tipo').single()
+//  3: Promise.all[0] buscarEmailUsuario → auth.admin.getUserById
+//  4: Promise.all[1] from('profiles').select('nome, sobrenome, cnpj, asaas_customer_id').single()
+//  5: Promise.all[2] from('pessoa').select('nome, telefone, email').single()
+//  6: asaasRequest POST /payments  (customer já existe no perfil → skip create)
+//  7: from('pagamentos').insert({...}).select('id').single()
+
+const USER_STUB    = { id: '00000000-0000-0000-0000-000000000001', email: 'pagante@test.com', role: 'authenticated' };
+const PROFILE_STUB = { nome: 'Pagante', sobrenome: '', cnpj: null, asaas_customer_id: 'cus-001' };
+
+// Mapa de URLs → respostas para os happy-path tests.
+// Usa stubFetchByUrl para evitar misalinhamento de índices que ocorre quando
+// chamadas fetch são feitas em ordem diferente da esperada (ex: Promise.all
+// concorrente com lógica interna do supabase-js).
+const HAPPY_PATH_URL_MAP: UrlFetchMap = {
+  '/auth/v1/user':                      { body: USER_STUB,    status: 200 }, // validarAuth getUser
+  '/rest/v1/profiles?select=tipo_conta': { body: { tipo_conta: 'pf' }, status: 200 }, // validarAuth profiles
+  '/auth/v1/admin/users/':              { body: USER_STUB,    status: 200 }, // buscarEmailUsuario
+  'select=nome%2Csobrenome%2Ccnpj':     { body: PROFILE_STUB, status: 200 }, // profiles dados
+  '/rest/v1/pessoa':                    { body: {},            status: 200 }, // pessoa
+  '/rest/v1/pagamentos':                { body: { id: 'pag-db-001' }, status: 201 }, // insert pagamento
+};
+
 Deno.test({ name: 'PIX — cria cobrança com sucesso', ...NO_LEAK, async fn() {
-  const restore = stubFetch([
-    { body: { id: 'usr-001', email: 'pagante@test.com' }, status: 200 }, // getUser
-    { body: { id: 'plan-pix-001', nome: 'Mensal', valor: 29.90 }, status: 200 }, // buscar plano
-    { body: { id: 'asaas-pay-001', invoiceUrl: 'https://asaas.com/pix/001', status: 'PENDING' }, status: 200 }, // Asaas
-    { body: { data: [{ id: 'ins-db-001' }], error: null }, status: 200 }, // DB insert
-  ]);
+  const restore = stubFetchByUrl({
+    ...HAPPY_PATH_URL_MAP,
+    '/rest/v1/planos':    { body: { id: 'plan-pix-001', nome: 'Mensal', preco: 29.90, tipo: 'mensal' }, status: 200 },
+    'sandbox.asaas.com': { body: { id: 'asaas-pay-001', invoiceUrl: 'https://asaas.com/pix/001' },      status: 200 },
+  });
   const req = makeReq({ plano_id: 'plan-pix-001', metodo: 'PIX' });
   const resp = await handler(req);
   assert([200, 201].includes(resp.status), `PIX falhou com status ${resp.status}`);
-  if (resp.status === 200 || resp.status === 201) {
+  if ([200, 201].includes(resp.status)) {
     const body = await resp.json();
-    assert('charge_url' in body || 'id_externo' in body || 'ok' in body,
-      'Resposta não contém campos esperados');
+    assert('ok' in body || 'pagamento_id' in body || 'asaas_id' in body,
+      `Resposta sem campos esperados: ${JSON.stringify(body)}`);
   }
   restore();
 }});
 
 Deno.test({ name: 'BOLETO — cria cobrança com sucesso', ...NO_LEAK, async fn() {
-  const restore = stubFetch([
-    { body: { id: 'usr-001', email: 'pagante@test.com' }, status: 200 },
-    { body: { id: 'plan-001', nome: 'Mensal', valor: 29.90 }, status: 200 },
-    { body: { id: 'asaas-bol-001', bankSlipUrl: 'https://asaas.com/boleto/001', status: 'PENDING' }, status: 200 },
-    { body: { data: [{ id: 'ins-db-002' }], error: null }, status: 200 },
-  ]);
+  const restore = stubFetchByUrl({
+    ...HAPPY_PATH_URL_MAP,
+    '/rest/v1/planos':    { body: { id: 'plan-001', nome: 'Mensal', preco: 29.90, tipo: 'mensal' }, status: 200 },
+    'sandbox.asaas.com': { body: { id: 'asaas-bol-001', bankSlipUrl: 'https://asaas.com/boleto/001' }, status: 200 },
+  });
   const req = makeReq({ plano_id: 'plan-001', metodo: 'BOLETO' });
   const resp = await handler(req);
   assert([200, 201].includes(resp.status), `BOLETO falhou com status ${resp.status}`);
@@ -176,16 +223,14 @@ Deno.test({ name: 'BOLETO — cria cobrança com sucesso', ...NO_LEAK, async fn(
 }});
 
 Deno.test({ name: 'metodo ausente usa PIX como default', ...NO_LEAK, async fn() {
-  const restore = stubFetch([
-    { body: { id: 'usr-001', email: 'pagante@test.com' }, status: 200 },
-    { body: { id: 'plan-001', nome: 'Mensal', valor: 29.90 }, status: 200 },
-    { body: { id: 'asaas-def-001', invoiceUrl: 'https://asaas.com/pix/def', status: 'PENDING' }, status: 200 },
-    { body: { data: [{ id: 'ins-db-003' }], error: null }, status: 200 },
-  ]);
-  const req = makeReq({ plano_id: 'plan-001' }); // sem metodo
+  const restore = stubFetchByUrl({
+    ...HAPPY_PATH_URL_MAP,
+    '/rest/v1/planos':    { body: { id: 'plan-001', nome: 'Mensal', preco: 29.90, tipo: 'mensal' }, status: 200 },
+    'sandbox.asaas.com': { body: { id: 'asaas-def-001', invoiceUrl: 'https://asaas.com/pix/def' }, status: 200 },
+  });
+  const req = makeReq({ plano_id: 'plan-001' }); // sem metodo → default PIX
   const resp = await handler(req);
-  // Deve aceitar e usar PIX por padrão, ou retornar erro de validação
-  assert([200, 201, 400, 422].includes(resp.status));
+  assert([200, 201].includes(resp.status), `default PIX falhou com status ${resp.status}`);
   restore();
 }});
 

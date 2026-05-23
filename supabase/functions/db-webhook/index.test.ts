@@ -32,8 +32,11 @@ function stubFetch(cfgs: FetchCfg[]): () => void {
   const original = globalThis.fetch;
   (globalThis as any).fetch = () => {
     const cfg = cfgs[idx++] ?? { body: {}, status: 200 };
-    return Promise.resolve(new Response(JSON.stringify(cfg.body), {
-      status: cfg.status ?? 200,
+    const status = cfg.status ?? 200;
+    // HTTP 204/304 respostas não podem ter body (Deno enforce isso)
+    const body = [204, 304, 101].includes(status) ? null : JSON.stringify(cfg.body);
+    return Promise.resolve(new Response(body, {
+      status,
       headers: { 'Content-Type': 'application/json' },
     }));
   };

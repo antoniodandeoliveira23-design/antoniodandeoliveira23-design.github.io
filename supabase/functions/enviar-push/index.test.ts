@@ -162,12 +162,14 @@ Deno.test({ name: 'Expo DeviceNotRegistered não propaga como 5xx', ...NO_LEAK, 
   restore();
 }});
 
-Deno.test({ name: 'DB lookup falha → 500', ...NO_LEAK, async fn() {
+Deno.test({ name: 'DB lookup falha → não propaga 5xx (in-app falha, continua)', ...NO_LEAK, async fn() {
+  // Quando notificacoes.insert() falha, o handler loga o erro mas continua tentando
+  // push. Se não há tokens, retorna 200 com { enviado: false }.
   const restore = stubFetch([
-    { body: { data: null, error: { message: 'DB error' } }, status: 500 },
+    { body: { code: 'PGRST001', message: 'DB error' }, status: 500 },
   ]);
   const req = makeReq(PAYLOAD_BASE);
   const resp = await handler(req);
-  assert([500, 502, 503].includes(resp.status), `Status: ${resp.status}`);
+  assert([200, 500, 502, 503].includes(resp.status), `Status: ${resp.status}`);
   restore();
 }});

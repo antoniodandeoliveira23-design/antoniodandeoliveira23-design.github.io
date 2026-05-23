@@ -11,7 +11,9 @@
 function makeBuilder(resolved: unknown) {
   const p = Promise.resolve(resolved);
   const b: any = { then: p.then.bind(p), catch: p.catch.bind(p) };
-  ['select','eq','order','limit','update','insert','range','single'].forEach(m => { b[m] = () => b; });
+  // range é jest.fn() para permitir inspeção dos argumentos de paginação
+  b.range = jest.fn().mockReturnValue(b);
+  ['select','eq','order','limit','update','insert','single'].forEach(m => { b[m] = () => b; });
   return b;
 }
 
@@ -196,6 +198,26 @@ describe('moderacaoService — modo configurado (supabaseConfigured = true)', ()
       mockFrom.mockReturnValue(makeBuilder({ data: [], count: null, error: null }));
       const res = await moderacaoService.listarPendentes();
       expect(res.total).toBe(0);
+    });
+
+    it('chama range() com offsets corretos para pagina=2, porPagina=5', async () => {
+      const builder = makeBuilder({ data: [], count: 50, error: null });
+      mockFrom.mockReturnValue(builder);
+
+      await moderacaoService.listarPendentes(2, 5);
+
+      // pagina=2, porPagina=5 → from=(2-1)*5=5, to=2*5-1=9
+      expect(builder.range).toHaveBeenCalledWith(5, 9);
+    });
+
+    it('chama range() com offsets corretos para pagina=1, porPagina=10 (primeira página)', async () => {
+      const builder = makeBuilder({ data: [], count: 10, error: null });
+      mockFrom.mockReturnValue(builder);
+
+      await moderacaoService.listarPendentes(1, 10);
+
+      // pagina=1, porPagina=10 → from=0, to=9
+      expect(builder.range).toHaveBeenCalledWith(0, 9);
     });
   });
 

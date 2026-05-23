@@ -56,7 +56,6 @@ describe('inscricoesService — modo demo (supabaseConfigured = false)', () => {
     (global as any).__supabaseConfigured = false;
     mockFrom   = jest.fn();
     mockInvoke = jest.fn();
-    const mod = require('@/services/inscricoes');
     // Re-isola o módulo para resetar _demoInscritos
     jest.isolateModules(() => {
       const fresh = require('@/services/inscricoes');

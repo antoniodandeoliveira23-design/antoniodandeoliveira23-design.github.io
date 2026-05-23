@@ -222,6 +222,7 @@ export async function enviarRelatorioAdmin(resultado: ResultadoExpiracao): Promi
 
 export async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return handleCors();
+  if (req.method !== 'POST')   return errorResponse('Method Not Allowed', 405);
 
   // Valida autenticação: só sistema ou admin podem chamar
   const auth = await validarAuth(req);

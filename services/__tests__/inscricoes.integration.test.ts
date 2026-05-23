@@ -101,8 +101,19 @@ describe('inscricoesService.inscrever()', () => {
     mockFrom.mockReturnValue(builder);
 
     await inscricoesService.inscrever('evt-001', 'usr-001');
-    // push é fire-and-forget — apenas verificamos que não bloqueia
-    expect(mockFunctionsInvoke).toHaveBeenCalledTimes(0); // invoke é assíncrono, OK se 0
+
+    // O código chama supabase.functions.invoke sem await (fire-and-forget).
+    // A chamada é feita de forma síncrona antes do retorno, então deve ser 1.
+    expect(mockFunctionsInvoke).toHaveBeenCalledTimes(1);
+    expect(mockFunctionsInvoke).toHaveBeenCalledWith(
+      'enviar-push',
+      expect.objectContaining({
+        body: expect.objectContaining({
+          usuario_id: 'usr-001',
+          tipo: 'inscricao_confirmada',
+        }),
+      }),
+    );
   });
 
   it('erro do Supabase: lança Error com mensagem', async () => {

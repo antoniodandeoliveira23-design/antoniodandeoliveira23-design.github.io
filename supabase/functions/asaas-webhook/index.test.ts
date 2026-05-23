@@ -17,7 +17,7 @@ import { assertEquals, assert } from 'jsr:@std/assert';
 Deno.env.set('DENO_TESTING', '1');
 Deno.env.set('SUPABASE_URL', 'https://test.supabase.co');
 Deno.env.set('SUPABASE_SERVICE_ROLE_KEY', 'test-svc');
-Deno.env.set('ASAAS_WEBHOOK_TOKEN', 'test-webhook-token-asaas');
+Deno.env.set('ASAAS_ACCESS_TOKEN', 'test-webhook-token-asaas');
 
 const { handler } = await import('./index.ts');
 

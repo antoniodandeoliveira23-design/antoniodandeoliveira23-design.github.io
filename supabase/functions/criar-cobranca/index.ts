@@ -129,6 +129,11 @@ export async function handler(req: Request): Promise<Response> {
   const { plano_id, metodo = 'PIX' } = payload;
   if (!plano_id) return errorResponse('"plano_id" é obrigatório', 400);
 
+  const METODOS_VALIDOS = ['PIX', 'BOLETO', 'CREDIT_CARD'] as const;
+  if (!METODOS_VALIDOS.includes(metodo as typeof METODOS_VALIDOS[number])) {
+    return errorResponse('"metodo" inválido — use PIX, BOLETO ou CREDIT_CARD', 422);
+  }
+
   const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
   try {

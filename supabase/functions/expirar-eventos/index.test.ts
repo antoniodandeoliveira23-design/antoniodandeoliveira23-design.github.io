@@ -101,11 +101,9 @@ Deno.test({ name: 'JWT de usuário retorna 401 ou 403 (não é ALERT_SECRET)', .
 }});
 
 Deno.test({ name: 'ALERT_SECRET correto retorna 200', ...NO_LEAK, async fn() {
+  // PostgREST retorna array diretamente (supabase-js envolve em { data, error })
   const restore = stubFetch([
-    // SELECT eventos a expirar
-    { body: { data: [], error: null }, status: 200 },
-    // UPDATE (não chamado se não há eventos)
-    { body: { data: [], error: null }, status: 200 },
+    { body: [], status: 200 }, // SELECT eventos a expirar → vazio → retorna cedo
   ]);
   const req = makeReq('test-alert-secret');
   const resp = await handler(req);
@@ -116,19 +114,21 @@ Deno.test({ name: 'ALERT_SECRET correto retorna 200', ...NO_LEAK, async fn() {
 // ── Happy paths ────────────────────────────────────────────────────
 
 Deno.test({ name: '3 eventos expirados → { expirados: 3, detalhes }', ...NO_LEAK, async fn() {
+  // PostgREST retorna array diretamente; count via header (não presente → 0)
   const restore = stubFetch([
-    { body: { data: EVENTOS_SEED, error: null }, status: 200 }, // SELECT
-    { body: { data: EVENTOS_SEED, error: null }, status: 200 }, // UPDATE
+    { body: EVENTOS_SEED, status: 200 }, // SELECT eventos a expirar
+    { body: [],           status: 200 }, // UPDATE status='expirado'
+    { body: [],           status: 200 }, // SELECT count pendentes (HEAD – body ignorado)
+    { body: [],           status: 201 }, // audit_log INSERT (fire-and-forget)
   ]);
   const req = makeReq('test-alert-secret');
   const resp = await handler(req);
   assert([200, 204].includes(resp.status), `Status: ${resp.status}`);
   if (resp.status === 200) {
     const body = await resp.json();
-    // Pode retornar { expirados, detalhes } ou { ok, count }
     assert(
       'expirados' in body || 'count' in body || 'ok' in body,
-      `Resposta inesperada: ${JSON.stringify(body)}`
+      `Resposta inesperada: ${JSON.stringify(body)}`,
     );
   }
   restore();
@@ -136,7 +136,7 @@ Deno.test({ name: '3 eventos expirados → { expirados: 3, detalhes }', ...NO_LE
 
 Deno.test({ name: 'zero eventos → { expirados: 0, detalhes: [] }', ...NO_LEAK, async fn() {
   const restore = stubFetch([
-    { body: { data: [], error: null }, status: 200 }, // SELECT: nenhum
+    { body: [], status: 200 }, // SELECT: nenhum evento a expirar
   ]);
   const req = makeReq('test-alert-secret');
   const resp = await handler(req);
@@ -147,8 +147,9 @@ Deno.test({ name: 'zero eventos → { expirados: 0, detalhes: [] }', ...NO_LEAK,
 // ── Erros de DB ────────────────────────────────────────────────────
 
 Deno.test({ name: 'DB select error → 500', ...NO_LEAK, async fn() {
+  // PostgREST devolve 5xx com objeto de erro; supabase-js retorna { data: null, error }
   const restore = stubFetch([
-    { body: { data: null, error: { message: 'select failed' } }, status: 500 },
+    { body: { code: 'PGRST001', message: 'select failed', details: '' }, status: 500 },
   ]);
   const req = makeReq('test-alert-secret');
   const resp = await handler(req);
@@ -158,8 +159,8 @@ Deno.test({ name: 'DB select error → 500', ...NO_LEAK, async fn() {
 
 Deno.test({ name: 'DB update error → 500 ou parcial', ...NO_LEAK, async fn() {
   const restore = stubFetch([
-    { body: { data: EVENTOS_SEED, error: null }, status: 200 }, // SELECT ok
-    { body: { data: null, error: { message: 'update failed' } }, status: 500 }, // UPDATE falha
+    { body: EVENTOS_SEED, status: 200 },  // SELECT ok → 3 eventos
+    { body: { code: 'PGRST001', message: 'update failed' }, status: 500 }, // UPDATE falha
   ]);
   const req = makeReq('test-alert-secret');
   const resp = await handler(req);

@@ -24,6 +24,28 @@ const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
 export async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  if (req.method !== 'POST')   return errorResponse('Method Not Allowed', 405);
+
+  // ── Auth: aceita ALERT_SECRET (chamadas internas) ou JWT de usuário ──
+  const ALERT_SECRET_ENV = Deno.env.get('ALERT_SECRET') ?? '';
+  const authHeader = req.headers.get('authorization') ?? '';
+  if (!authHeader.startsWith('Bearer ')) {
+    return errorResponse('Authorization ausente', 401);
+  }
+  const token = authHeader.slice(7);
+  if (ALERT_SECRET_ENV && token !== ALERT_SECRET_ENV) {
+    // Tenta validar como JWT do Supabase
+    try {
+      const adminCheck = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      );
+      const { data: { user }, error } = await adminCheck.auth.getUser(token);
+      if (error || !user) return errorResponse('Token inválido', 401);
+    } catch {
+      return errorResponse('Token inválido', 401);
+    }
+  }
 
   try {
     // Aceita chamadas de service_role (outras Edge Functions) ou usuários autenticados

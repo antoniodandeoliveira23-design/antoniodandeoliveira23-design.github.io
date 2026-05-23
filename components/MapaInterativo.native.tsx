@@ -17,7 +17,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Callout, Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+
+// iOS → Apple Maps (PROVIDER_DEFAULT, sem API key)
+// Android → Google Maps (requer EXPO_PUBLIC_GOOGLE_MAPS_API_KEY no .env)
+const MAP_PROVIDER = Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT;
+import { Platform } from 'react-native';
+import MapView, { Callout, Marker, PROVIDER_DEFAULT, PROVIDER_GOOGLE } from 'react-native-maps';
 import { CORES, FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
 import type { Evento } from '@/types';
 
@@ -71,7 +76,7 @@ export default function MapaInterativo({
   return (
     <MapView
       style={styles.map}
-      provider={PROVIDER_DEFAULT}
+      provider={MAP_PROVIDER}
       initialRegion={{
         latitude:        centro.lat,
         longitude:       centro.lng,

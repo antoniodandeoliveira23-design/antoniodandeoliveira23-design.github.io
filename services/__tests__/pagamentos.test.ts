@@ -159,6 +159,11 @@ describe('pagamentosService.criarCobranca()', () => {
     );
     await expect(pagamentosService.criarCobranca('plano-1')).rejects.toThrow('Erro ao criar cobrança');
   });
+
+  it('propaga TypeError quando fetch lança erro de rede', async () => {
+    (global as any).fetch = jest.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+    await expect(pagamentosService.criarCobranca('plano-1')).rejects.toThrow('Failed to fetch');
+  });
 });
 
 // ── consultarStatus ────────────────────────────────────────────────────────

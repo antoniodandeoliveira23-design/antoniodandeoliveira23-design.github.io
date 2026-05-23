@@ -285,11 +285,27 @@ describe('auditoria.ts — modo configurado (supabaseConfigured = true)', () => 
       await Promise.resolve();
 
       // insert deve ser chamado uma única vez com os 3 registros agrupados
-      const auditBuilder = mockSupabase.from.mock.results.find(
-        (r: any) => mockSupabase.from.mock.calls[mockSupabase.from.mock.results.indexOf(r)]?.[0] === 'audit_log'
-      );
-
       expect(mockSupabase.from).toHaveBeenCalledWith('audit_log');
+
+      // Localiza o builder retornado para a chamada 'audit_log'
+      const auditCallIdx = mockSupabase.from.mock.calls.findIndex(
+        (call: any[]) => call[0] === 'audit_log',
+      );
+      expect(auditCallIdx).toBeGreaterThanOrEqual(0);
+
+      const auditBuilder = mockSupabase.from.mock.results[auditCallIdx].value;
+      const insertArg = auditBuilder.insert.mock.calls[0]?.[0];
+
+      // O lote deve ter exatamente 3 entradas com as ações corretas
+      expect(Array.isArray(insertArg)).toBe(true);
+      expect(insertArg).toHaveLength(3);
+      expect(insertArg).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ acao: 'a1' }),
+          expect.objectContaining({ acao: 'a2' }),
+          expect.objectContaining({ acao: 'a3' }),
+        ]),
+      );
     });
 
     it('não lança exceção mesmo se supabase.from lançar', async () => {

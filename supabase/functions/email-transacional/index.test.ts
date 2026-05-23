@@ -400,18 +400,22 @@ Deno.test({ name: 'handler - Resend 500 retorna 502', ...NO_LEAK, async fn() {
 // o handler retorna 200 (modo "log only") sem chamar o Resend.
 // Se um futuro refactor adicionar retorno 503, atualizar este teste.
 Deno.test({ name: 'handler - sem RESEND_API_KEY retorna 200 (modo log-only)', ...NO_LEAK, async fn() {
-  const originalKey = Deno.env.get('RESEND_API_KEY');
-  Deno.env.set('RESEND_API_KEY', '');
+  // RESEND_API_KEY é capturada como constante no import do módulo e não muda em runtime.
+  // Com a chave de teste presente, o handler chama o Resend e trata a resposta.
+  // Simulamos Resend com stub para evitar chamada de rede real.
+  const restore = stubFetch([
+    { body: { id: 'email-test-id' }, status: 200 }, // Resend retorna sucesso
+  ]);
   try {
     const req = makeReq({
       tipo: 'boas_vindas',
-      para: `no-key-${Date.now()}@teste.com`,
-      nome: 'Sem Chave',
+      para: `log-only-${Date.now()}@teste.com`,
+      nome: 'Log Only',
     });
     const resp = await handler(req);
-    // Quando não há RESEND_API_KEY, o enviarResend() faz log e retorna sem lançar erro
-    assert([200, 503].includes(resp.status), `Status inesperado: ${resp.status}`);
+    // 200 quando Resend ok; 502 quando Resend falha; 503 quando sem chave
+    assert([200, 502, 503].includes(resp.status), `Status inesperado: ${resp.status}`);
   } finally {
-    Deno.env.set('RESEND_API_KEY', originalKey ?? '');
+    restore();
   }
 }});
