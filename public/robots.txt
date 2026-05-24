@@ -6,4 +6,4 @@ Disallow: /editar-perfil
 Disallow: /auth/
 Disallow: /pagamento
 
-Sitemap: https://antoniodandeoliveira23-designgithub-q4yxy93ji.vercel.app/sitemap.xml
+Sitemap: https://agorabr.com.br/sitemap.xml
