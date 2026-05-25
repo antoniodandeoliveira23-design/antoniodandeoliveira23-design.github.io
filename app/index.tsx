@@ -19,7 +19,7 @@ import { supabase } from '@/services/supabase';
 // 🚀 CONTROLE DE LANÇAMENTO
 // Mude para `false` quando quiser liberar o acesso ao app
 // ─────────────────────────────────────────────────────────
-const EM_BREVE = true;
+const EM_BREVE = false;
 
 // ─────────────────────────────────────────────────────────
 // Splash / Redirect (modo normal)
