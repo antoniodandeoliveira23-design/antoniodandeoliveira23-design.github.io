@@ -214,6 +214,12 @@ function RootLayoutContent() {
         <Stack.Screen name="auth/callback" />
         <Stack.Screen name="politica-privacidade" options={{ presentation: 'modal' }} />
         <Stack.Screen name="termos-de-servico" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="denuncia" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="busca" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="filtros" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="metricas-evento/[id]" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="curtidas" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="anuncio-no-ar" />
       </Stack>
     </AuthGuard>
   );

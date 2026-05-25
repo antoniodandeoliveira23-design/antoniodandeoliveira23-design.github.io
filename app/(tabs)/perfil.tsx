@@ -112,6 +112,29 @@ export default function PerfilScreen() {
         </View>
       </View>
 
+      {/* Acesso rápido (Item 9) */}
+      <Text style={styles.acessoRapidoTitulo}>Acesso rápido</Text>
+      <View style={styles.acessoRapidoRow}>
+        <TouchableOpacity style={styles.acessoRapidoBtn} onPress={() => router.push('/meus-eventos')}>
+          <View style={styles.acessoRapidoIconCircle}>
+            <Ionicons name="calendar" size={22} color={cores.roxoClaro} />
+          </View>
+          <Text style={styles.acessoRapidoLabel}>Meus eventos</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.acessoRapidoBtn} onPress={() => router.push('/favoritos')}>
+          <View style={styles.acessoRapidoIconCircle}>
+            <Ionicons name="bookmark" size={22} color={cores.laranja} />
+          </View>
+          <Text style={styles.acessoRapidoLabel}>Eventos salvos</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.acessoRapidoBtn} onPress={() => router.push('/curtidas')}>
+          <View style={styles.acessoRapidoIconCircle}>
+            <Ionicons name="heart" size={22} color={cores.erro} />
+          </View>
+          <Text style={styles.acessoRapidoLabel}>Curtidos</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.menu}>
         {MENU_ITEMS.map((item, i) => (
           <TouchableOpacity key={i} style={styles.menuItem} onPress={() => item.route ? router.push(item.route as any) : undefined}>
@@ -172,6 +195,12 @@ function createStyles(cores: Cores) {
     statValue: { color: cores.branco, fontSize: FONT_SIZE.xl, fontWeight: 'bold' },
     statLabel: { color: cores.cinzaClaro, fontSize: FONT_SIZE.xs, marginTop: 2 },
     statDivider: { width: 1, height: 32, backgroundColor: cores.border },
+
+    acessoRapidoTitulo: { color: cores.cinzaClaro, fontSize: FONT_SIZE.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: SPACING.sm },
+    acessoRapidoRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.lg },
+    acessoRapidoBtn: { flex: 1, backgroundColor: cores.backgroundCard, borderRadius: RADIUS.lg, padding: SPACING.md, alignItems: 'center', gap: SPACING.sm },
+    acessoRapidoIconCircle: { width: 44, height: 44, borderRadius: 22, backgroundColor: cores.background, justifyContent: 'center', alignItems: 'center' },
+    acessoRapidoLabel: { color: cores.branco, fontSize: 11, fontWeight: '600', textAlign: 'center' },
 
     menu: { gap: 4 },
     menuItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: cores.backgroundCard, borderRadius: RADIUS.md, padding: SPACING.md, gap: SPACING.md },

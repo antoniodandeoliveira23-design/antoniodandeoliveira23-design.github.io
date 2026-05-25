@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Linking,
   Modal,
   Platform,
@@ -79,6 +80,16 @@ export default function HomeScreen() {
   const [denunciaVisivel, setDenunciaVisivel] = useState(false);
   const [denunciaAlvoId, setDenunciaAlvoId] = useState('');
 
+  // Item 7: Popover do marcador no mapa
+  const [marcadorEvento, setMarcadorEvento] = useState<Evento | null>(null);
+  const popoverAnim = useRef(new Animated.Value(0)).current;
+
+  // Item 8: Carrossel de eventos em destaque
+  const eventosDestaque = [...(eventosGeo ?? eventos)]
+    .filter((e) => e.status === 'aprovado')
+    .sort((a, b) => new Date(a.data_inicio).getTime() - new Date(b.data_inicio).getTime())
+    .slice(0, 5);
+
   // ── Geocoding real ──────────────────────────────────────
   const [posicaoAtual, setPosicaoAtual] = useState<Coordenadas | null>(null);
   const [loadingGeo, setLoadingGeo] = useState(true);
@@ -154,6 +165,15 @@ export default function HomeScreen() {
   const abrirEvento = (evento: Evento) => {
     setEventoSelecionado(evento);
     setModalVisivel(true);
+  };
+
+  const abrirMarcador = (evento: Evento) => {
+    setMarcadorEvento(evento);
+    Animated.spring(popoverAnim, { toValue: 1, useNativeDriver: true, damping: 14, stiffness: 120 }).start();
+  };
+
+  const fecharMarcador = () => {
+    Animated.timing(popoverAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => setMarcadorEvento(null));
   };
 
   const abrirDenuncia = (eventoId: string) => {
@@ -290,6 +310,29 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Item 8: Carrossel de eventos em destaque */}
+        {eventosDestaque.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.destaqueList} style={styles.destaqueScroll}>
+            {eventosDestaque.map((ev) => (
+              <TouchableOpacity key={ev.id} style={styles.destaqueCard} onPress={() => abrirEvento(ev)}>
+                <View style={styles.destaqueIconCircle}>
+                  <Ionicons name={(ICON_MAP[ev.categoria] || 'calendar') as any} size={18} color={cores.laranja} />
+                </View>
+                <Text style={styles.destaqueNome} numberOfLines={2}>{ev.nome}</Text>
+                <View style={styles.destaqueMeta}>
+                  <Ionicons name="calendar-outline" size={10} color={cores.laranja} />
+                  <Text style={styles.destaqueData}>
+                    {new Date(ev.data_inicio).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                  </Text>
+                </View>
+                <View style={styles.destaqueCategoriaBadge}>
+                  <Text style={styles.destaqueCategoriaText}>{ev.categoria.toUpperCase()}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
 
         {/* Busca */}
         <View style={styles.searchWrapper}>
@@ -595,6 +638,52 @@ export default function HomeScreen() {
         </View>
       </Modal>
 
+      {/* Item 7: Popover do marcador no mapa */}
+      {marcadorEvento && (
+        <Animated.View
+          style={[
+            styles.popoverCard,
+            {
+              transform: [{ translateY: popoverAnim.interpolate({ inputRange: [0, 1], outputRange: [200, 0] }) }],
+              opacity: popoverAnim,
+            },
+          ]}
+        >
+          <View style={styles.popoverHeader}>
+            <View style={styles.popoverHandle} />
+            <TouchableOpacity style={styles.popoverCloseBtn} onPress={fecharMarcador}>
+              <Ionicons name="close" size={18} color={cores.branco} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.popoverContent}>
+            <View style={styles.popoverIconCircle}>
+              <Ionicons name={(ICON_MAP[marcadorEvento.categoria] || 'calendar') as any} size={24} color={cores.laranja} />
+            </View>
+            <View style={styles.popoverInfo}>
+              <Text style={styles.popoverNome} numberOfLines={2}>{marcadorEvento.nome}</Text>
+              <View style={styles.popoverMetaRow}>
+                <Ionicons name="pricetag-outline" size={11} color={cores.roxoClaro} />
+                <Text style={styles.popoverCategoria}>{marcadorEvento.categoria}</Text>
+              </View>
+              <View style={styles.popoverMetaRow}>
+                <Ionicons name="calendar-outline" size={11} color={cores.laranja} />
+                <Text style={styles.popoverData}>
+                  {new Date(marcadorEvento.data_inicio).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                </Text>
+              </View>
+              <View style={styles.popoverMetaRow}>
+                <Ionicons name="location-outline" size={11} color={cores.cinzaClaro} />
+                <Text style={styles.popoverLocal} numberOfLines={1}>{marcadorEvento.local}</Text>
+              </View>
+            </View>
+          </View>
+          <TouchableOpacity style={styles.popoverDetalhesBtn} onPress={() => { fecharMarcador(); abrirEvento(marcadorEvento); }}>
+            <Text style={styles.popoverDetalhesBtnText}>Ver detalhes</Text>
+            <Ionicons name="chevron-forward" size={16} color={cores.branco} />
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
       {/* R8: Modal Denúncia */}
       <ModalDenuncia
         visivel={denunciaVisivel}
@@ -681,8 +770,35 @@ function createStyles(cores: Cores) {
     prodLocal: { color: cores.cinzaClaro, fontSize: 10, marginBottom: 6 },
     prodPreco: { color: cores.laranja, fontSize: FONT_SIZE.sm, fontWeight: 'bold' },
 
+    // Carrossel destaque (Item 8)
+    destaqueScroll: { maxHeight: 140, marginBottom: SPACING.sm },
+    destaqueList: { paddingHorizontal: SPACING.lg, gap: SPACING.sm },
+    destaqueCard: { backgroundColor: cores.backgroundCard, borderRadius: RADIUS.lg, padding: SPACING.md, width: 140, gap: 6 },
+    destaqueIconCircle: { width: 34, height: 34, borderRadius: 17, backgroundColor: cores.background, justifyContent: 'center', alignItems: 'center' },
+    destaqueNome: { color: cores.branco, fontSize: 12, fontWeight: 'bold', lineHeight: 16 },
+    destaqueMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    destaqueData: { color: cores.laranja, fontSize: 10, fontWeight: '600' },
+    destaqueCategoriaBadge: { alignSelf: 'flex-start', backgroundColor: cores.background, borderRadius: RADIUS.full, paddingHorizontal: 6, paddingVertical: 2 },
+    destaqueCategoriaText: { color: cores.roxoClaro, fontSize: 9, fontWeight: '700', letterSpacing: 0.3 },
+
     // FAB
     fab: { position: 'absolute', right: SPACING.lg, bottom: Platform.OS === 'web' ? 80 : 100, width: 56, height: 56, borderRadius: 28, backgroundColor: cores.roxo, justifyContent: 'center', alignItems: 'center', elevation: 5, shadowColor: cores.roxo, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8 },
+
+    // Popover marcador mapa (Item 7)
+    popoverCard: { position: 'absolute', bottom: Platform.OS === 'web' ? 80 : 100, left: SPACING.lg, right: SPACING.lg, backgroundColor: cores.backgroundCard, borderRadius: RADIUS.xl, padding: SPACING.md, elevation: 12, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.3, shadowRadius: 12 },
+    popoverHeader: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.sm },
+    popoverHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: cores.border, position: 'absolute' },
+    popoverCloseBtn: { position: 'absolute', right: 0, width: 28, height: 28, borderRadius: 14, backgroundColor: cores.background, justifyContent: 'center', alignItems: 'center' },
+    popoverContent: { flexDirection: 'row', gap: SPACING.md, alignItems: 'flex-start', marginBottom: SPACING.md },
+    popoverIconCircle: { width: 48, height: 48, borderRadius: 24, backgroundColor: cores.background, justifyContent: 'center', alignItems: 'center' },
+    popoverInfo: { flex: 1, gap: 4 },
+    popoverNome: { color: cores.branco, fontSize: FONT_SIZE.md, fontWeight: 'bold' },
+    popoverMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    popoverCategoria: { color: cores.roxoClaro, fontSize: FONT_SIZE.xs, textTransform: 'capitalize' },
+    popoverData: { color: cores.laranja, fontSize: FONT_SIZE.xs, fontWeight: '600' },
+    popoverLocal: { color: cores.cinzaClaro, fontSize: FONT_SIZE.xs, flex: 1 },
+    popoverDetalhesBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: cores.roxo, borderRadius: RADIUS.md, padding: 12 },
+    popoverDetalhesBtnText: { color: cores.branco, fontWeight: 'bold', fontSize: FONT_SIZE.sm },
 
     // Modal
     modalOverlay: { flex: 1, backgroundColor: cores.overlay, justifyContent: 'center', padding: SPACING.lg },
