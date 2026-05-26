@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { Evento, CategoriaEvento } from '@/types';
 import {
   eventosService,
@@ -72,9 +72,12 @@ interface EventosContextData {
 // Defaults
 // ─────────────────────────────────────────────────────────
 
+/** Itens por página — constante para não entrar no dep-array dos useCallbacks */
+const POR_PAGINA = 20;
+
 const PAGINACAO_INICIAL: EstadoPaginacao = {
   pagina: 1,
-  porPagina: 20,
+  porPagina: POR_PAGINA,
   total: 0,
   temMais: false,
 };
@@ -93,6 +96,32 @@ export function EventosProvider({ children }: { children: React.ReactNode }) {
   const [paginacao, setPaginacao] = useState<EstadoPaginacao>(PAGINACAO_INICIAL);
   const [favoritos, setFavoritos] = useState<string[]>([]);
 
+  // ── Pre-fetch na montagem do provider ────────────────────────────────
+  // Eventos são dados públicos — não requerem auth.
+  // Iniciar aqui garante que a lista chegue ANTES do HomeScreen renderizar,
+  // eliminando o flash de "lista vazia → dados carregados".
+  // Uma ref protege contra dupla-chamada em StrictMode (dev).
+  const prefetchedRef = useRef(false);
+  useEffect(() => {
+    if (prefetchedRef.current) return;
+    prefetchedRef.current = true;
+
+    setLoading(true);
+    eventosService.listar({ pagina: 1, porPagina: POR_PAGINA })
+      .then((resultado) => {
+        setEventos(resultado.dados);
+        setPaginacao({
+          pagina:    resultado.pagina,
+          porPagina: resultado.porPagina,
+          total:     resultado.total,
+          temMais:   resultado.temMais,
+        });
+      })
+      .catch(() => { /* falha silenciosa — HomeScreen recupera via carregarEventos() */ })
+      .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Carregar eventos (substitui lista atual) ───────────
   const carregarEventos = useCallback(async (opcoes: OpcoesFiltro = {}) => {
     setLoading(true);
@@ -101,7 +130,7 @@ export function EventosProvider({ children }: { children: React.ReactNode }) {
         categoria: filtroCategoria,
         busca,
         pagina: 1,
-        porPagina: paginacao.porPagina,
+        porPagina: POR_PAGINA,   // constante — não entra no dep-array
         ...opcoes,
       });
       setEventos(resultado.dados);
@@ -114,7 +143,7 @@ export function EventosProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [filtroCategoria, busca, paginacao.porPagina]);
+  }, [filtroCategoria, busca]); // removido paginacao.porPagina — era dep instável
 
   // ── Carregar mais (append — infinite scroll) ───────────
   const carregarMais = useCallback(async () => {
@@ -126,7 +155,7 @@ export function EventosProvider({ children }: { children: React.ReactNode }) {
         categoria: filtroCategoria,
         busca,
         pagina: proxPagina,
-        porPagina: paginacao.porPagina,
+        porPagina: POR_PAGINA,
       });
       setEventos((prev) => [...prev, ...resultado.dados]);
       setPaginacao({
@@ -149,14 +178,14 @@ export function EventosProvider({ children }: { children: React.ReactNode }) {
         categoria: filtroCategoria,
         busca: termo,
         pagina: 1,
-        porPagina: paginacao.porPagina,
+        porPagina: POR_PAGINA,
       });
       setEventos(resultado.dados);
       setPaginacao({ pagina: resultado.pagina, porPagina: resultado.porPagina, total: resultado.total, temMais: resultado.temMais });
     } finally {
       setLoading(false);
     }
-  }, [filtroCategoria, paginacao.porPagina]);
+  }, [filtroCategoria]);
 
   // ── Filtro por categoria ───────────────────────────────
   const filtrarPorCategoria = useCallback((cat: CategoriaEvento | null) => {
@@ -173,9 +202,9 @@ export function EventosProvider({ children }: { children: React.ReactNode }) {
     return eventosService.listarPorRaio(lat, lng, raioKm, {
       categoria: opcoes.categoria ?? filtroCategoria,
       pagina: opcoes.pagina ?? 1,
-      porPagina: paginacao.porPagina,
+      porPagina: POR_PAGINA,
     });
-  }, [filtroCategoria, paginacao.porPagina]);
+  }, [filtroCategoria]);
 
   // ── Criar evento ───────────────────────────────────────
   // Não usa o loading compartilhado — o caller (criar-evento.tsx) tem seu próprio estado

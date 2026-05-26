@@ -135,7 +135,7 @@ export const eventosService = {
 
     let query = supabase
       .from('eventos')
-      .select('*, criador:profiles(*)', { count: 'exact' })
+      .select('*', { count: 'exact' })   // sem JOIN — criador não é usado na listagem
       .eq('status', 'aprovado')
       .order('destaque', { ascending: false })
       .order('data_inicio', { ascending: true })
@@ -302,7 +302,7 @@ export const eventosService = {
 
   // ── EDITAR ─────────────────────────────────────────────
   async editar(eventoId: string, updates: Partial<CriarEventoData>): Promise<Evento> {
-    const user = await getSupabaseUser();
+    const user = await getSupabaseUserFast(); // lê localStorage (<1ms, sem rede) — RLS valida no servidor
     if (!user) {
       // Demo: edita na lista local (DEMO_EVENTOS ou _demoPendentes)
       const idxD = DEMO_EVENTOS.findIndex((e) => e.id === eventoId);
@@ -351,7 +351,7 @@ export const eventosService = {
 
   // ── DELETAR (soft delete → status 'expirado') ──────────
   async deletar(eventoId: string): Promise<void> {
-    const user = await getSupabaseUser();
+    const user = await getSupabaseUserFast(); // lê localStorage (<1ms, sem rede) — RLS valida no servidor
     if (!user) {
       // Demo: remove da lista local
       const idxD = DEMO_EVENTOS.findIndex((e) => e.id === eventoId);
@@ -381,19 +381,19 @@ export const eventosService = {
 
   // ── FAVORITAR / DESFAVORITAR ───────────────────────────
   async favoritar(eventoId: string): Promise<void> {
-    const user = await getSupabaseUser();
+    const user = await getSupabaseUserFast(); // lê localStorage (<1ms, sem rede) — RLS valida no servidor
     if (!user) return; // Demo: silencioso (favoritos não persistem)
     await supabase.from('favoritos').insert({ usuario_id: user.id, evento_id: eventoId, criado_em: new Date().toISOString() });
   },
 
   async desfavoritar(eventoId: string): Promise<void> {
-    const user = await getSupabaseUser();
+    const user = await getSupabaseUserFast(); // lê localStorage (<1ms, sem rede) — RLS valida no servidor
     if (!user) return; // Demo: silencioso
     await supabase.from('favoritos').delete().eq('usuario_id', user.id).eq('evento_id', eventoId);
   },
 
   async listarFavoritos(): Promise<string[]> {
-    const user = await getSupabaseUser();
+    const user = await getSupabaseUserFast(); // lê localStorage (<1ms, sem rede) — RLS valida no servidor
     if (!user) return []; // Demo: sem favoritos persistidos
     const { data } = await supabase.from('favoritos').select('evento_id').eq('usuario_id', user.id);
     return data?.map((f) => f.evento_id) || [];

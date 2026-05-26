@@ -102,15 +102,33 @@ export default function HomeScreen() {
   // Mapa só renderiza depois do mount no cliente (Leaflet acessa document)
   const [mapaMontado, setMapaMontado] = useState(false);
 
-  // Carrega eventos imediatamente ao montar (sem esperar GPS)
+  // Ref para ignorar a primeira execução do efeito de categoria
+  // (o EventosProvider já fez o pre-fetch inicial; evita double-fetch na montagem)
+  const isInitialCategoryRun = useRef(true);
+
+  // Inicializa mapa + GPS + dados secundários em paralelo (um único efeito de montagem)
   useEffect(() => {
     setMapaMontado(true);
-    carregarEventos();
     inicializarGPS();
+
+    // Produtos e inscrições carregados juntos → setState batched pelo React 18
+    // sem disparar re-renders separados
+    Promise.all([
+      produtosService.listar(),
+      user?.id ? inscricoesService.listarIds(user.id) : Promise.resolve(null),
+    ]).then(([prodRes, inscritos]) => {
+      setProdutos(prodRes.dados);
+      if (inscritos !== null) setInscritos(inscritos);
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Recarrega lista quando categoria muda
+  // Recarrega lista SOMENTE quando categoria muda (pula montagem inicial)
   useEffect(() => {
+    if (isInitialCategoryRun.current) {
+      isInitialCategoryRun.current = false;
+      return;
+    }
     if (posicaoRef.current) {
       buscarPorRaio(posicaoRef.current.lat, posicaoRef.current.lng, 10, { categoria: filtroCategoria })
         .then((r) => setEventosGeo(r.dados))
@@ -119,17 +137,6 @@ export default function HomeScreen() {
       carregarEventos();
     }
   }, [filtroCategoria]);
-
-  useEffect(() => {
-    produtosService.listar().then(r => setProdutos(r.dados));
-  }, []);
-
-  // Carrega IDs de eventos em que o usuário está inscrito
-  useEffect(() => {
-    if (user?.id) {
-      inscricoesService.listarIds(user.id).then(setInscritos).catch(() => {});
-    }
-  }, [user?.id]);
 
   const inicializarGPS = async () => {
     setLoadingGeo(true);

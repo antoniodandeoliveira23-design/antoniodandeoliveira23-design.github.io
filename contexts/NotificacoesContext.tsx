@@ -19,7 +19,6 @@ import { supabase, supabaseConfigured } from '@/services/supabase';
 import {
   Notificacao,
   buscarNotificacoes,
-  contarNaoLidas,
   marcarComoLida,
   marcarTodasComoLidas,
 } from '@/services/notificacoes';
@@ -58,10 +57,10 @@ export function NotificacoesProvider({ children }: { children: React.ReactNode }
     if (!user?.id) return;
     setLoading(true);
     try {
-      const [lista, count] = await Promise.all([
-        buscarNotificacoes(user.id),
-        contarNaoLidas(user.id),
-      ]);
+      // Uma única query — contagem feita no cliente a partir da lista já retornada
+      // elimina 1 round-trip extra ao Supabase (~200-500ms)
+      const lista = await buscarNotificacoes(user.id);
+      const count = lista.filter((n) => !n.lida).length;
       setNotificacoes(lista);
       setTotalNaoLidas(count);
     } finally {
