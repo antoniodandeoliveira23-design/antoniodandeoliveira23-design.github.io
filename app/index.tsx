@@ -214,9 +214,18 @@ function EmBreve() {
 
 // ─────────────────────────────────────────────────────────
 // Export principal — alterna entre Em Breve e Splash normal
+//
+// Lógica de acesso:
+//   EM_BREVE = false → app aberto para todos
+//   EM_BREVE = true  → tela "Em Breve" para visitantes,
+//                      mas admin/gov passam direto (bypass)
 // ─────────────────────────────────────────────────────────
 export default function IndexScreen() {
-  return EM_BREVE ? <EmBreve /> : <SplashRedirect />;
+  const { signed, user } = useAuth();
+  const isAdmin = signed && (user?.tipo_conta === 'admin' || user?.tipo_conta === 'gov');
+
+  if (EM_BREVE && !isAdmin) return <EmBreve />;
+  return <SplashRedirect />;
 }
 
 // ─────────────────────────────────────────────────────────
