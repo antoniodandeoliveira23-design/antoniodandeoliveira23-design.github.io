@@ -259,4 +259,18 @@ export const emailService = {
       idempotency_key: `senha-${para}-${Date.now()}`,
     });
   },
+
+  /**
+   * Envia código 2FA por e-mail para admins.
+   * Chamado em: services/doisFA.ts → gerarCodigo()
+   */
+  async codigoAdmin2FA({ para, nome, codigo }: { para: string; nome: string; codigo: string }): Promise<void> {
+    await invocar({
+      tipo: 'codigo_2fa',
+      para,
+      nome,
+      dados: { codigo },
+      idempotency_key: `2fa-${para}-${Date.now()}`,
+    });
+  },
 };

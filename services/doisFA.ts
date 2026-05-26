@@ -21,6 +21,7 @@
 
 import { supabase, supabaseConfigured } from './supabase';
 import { registrarAcao } from './auditoria';
+import { emailService } from './email';
 
 // ─────────────────────────────────────────────────────────
 // Estado de sessão (memória — reset no logout)
@@ -73,8 +74,21 @@ export const doisFA = {
         usado: false,
       });
 
-      // TODO: chamar Edge Function para enviar por email
-      // await supabase.functions.invoke('send-2fa-email', { body: { adminId, codigo } });
+      // Busca email e nome do admin para enviar o código
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('nome')
+        .eq('id', adminId)
+        .single();
+
+      if (user?.email) {
+        await emailService.codigoAdmin2FA({
+          para:   user.email,
+          nome:   profile?.nome ?? 'Administrador',
+          codigo,
+        });
+      }
     } catch {
       // Falha silenciosa — código ainda válido em memória
     }
