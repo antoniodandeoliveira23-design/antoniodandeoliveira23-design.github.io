@@ -1,16 +1,8 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
-import Head from 'expo-router/head';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { ActivityIndicator, Platform, View } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
-
-// ─── Previne tela branca enquanto o bundle JS carrega ────────────────────────
-// Executa antes do React renderizar — muda o fundo do body imediatamente
-if (typeof document !== 'undefined') {
-  document.documentElement.style.backgroundColor = '#1A0B2E';
-  document.body.style.backgroundColor = '#1A0B2E';
-}
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { TemaProvider, useTema } from '@/contexts/TemaContext';
 import { EventosProvider } from '@/contexts/EventosContext';
@@ -197,12 +189,7 @@ function RootLayoutContent() {
   }, []);
 
   return (
-    <>
-      {/* Injeta background no HTML estático — evita tela branca antes do JS carregar */}
-      <Head>
-        <style>{`html,body{background-color:#1A0B2E!important}`}</style>
-      </Head>
-      <AuthGuard>
+    <AuthGuard>
       <StatusBar style={modoEscuro ? 'light' : 'dark'} backgroundColor={cores.background} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: cores.background } }}>
         <Stack.Screen name="index" />
@@ -235,7 +222,6 @@ function RootLayoutContent() {
         <Stack.Screen name="anuncio-no-ar" />
       </Stack>
     </AuthGuard>
-    </>
   );
 }
 
