@@ -45,6 +45,7 @@ html,body{background-color:#1A0B2E!important;margin:0;padding:0}
   margin-top:8px;
 }
 @keyframes agora-spin{to{transform:rotate(360deg)}}
+@keyframes agora-slidein{from{opacity:0;transform:translateX(-50%) translateY(16px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 `;
 
 /** Remove a splash assim que o React montar o primeiro nó real no #root */
@@ -63,6 +64,58 @@ const SPLASH_JS = `
     }
   });
   ob.observe(root,{childList:true,subtree:true});
+})();
+`;
+
+/**
+ * Registra o Service Worker e exibe banner de "Nova versão disponível"
+ * quando o SW detecta que index.html foi atualizado no servidor.
+ */
+const SW_JS = `
+(function(){
+  if(!('serviceWorker' in navigator))return;
+
+  // Banner de atualização (injetado dinamicamente, fora do React)
+  function mostrarBannerAtualizacao(){
+    if(document.getElementById('agora-update-banner'))return;
+    var b=document.createElement('div');
+    b.id='agora-update-banner';
+    b.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);'+
+      'background:#7B2FBE;color:#fff;padding:12px 20px;border-radius:12px;'+
+      'font-family:system-ui,sans-serif;font-size:14px;font-weight:600;'+
+      'box-shadow:0 4px 20px rgba(0,0,0,.4);z-index:99999;'+
+      'display:flex;align-items:center;gap:12px;white-space:nowrap;'+
+      'animation:agora-slidein .3s ease';
+    b.innerHTML='<span>🚀 Nova versão disponível</span>'+
+      '<button onclick="location.reload()" style="background:rgba(255,255,255,.2);'+
+      'border:none;color:#fff;padding:6px 14px;border-radius:8px;'+
+      'font-size:13px;font-weight:700;cursor:pointer">Atualizar</button>';
+    document.body.appendChild(b);
+  }
+
+  // Ouve mensagens do SW (nova versão detectada)
+  navigator.serviceWorker.addEventListener('message',function(e){
+    if(e.data&&e.data.tipo==='ATUALIZACAO_DISPONIVEL') mostrarBannerAtualizacao();
+  });
+
+  // Registra o SW após o load (não bloqueia o carregamento inicial)
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('/sw.js',{scope:'/'})
+      .then(function(reg){
+        // Verifica atualizações a cada 30 min enquanto o app está aberto
+        setInterval(function(){ reg.update(); }, 30*60*1000);
+        reg.addEventListener('updatefound',function(){
+          var sw=reg.installing;
+          if(!sw)return;
+          sw.addEventListener('statechange',function(){
+            if(sw.state==='installed'&&navigator.serviceWorker.controller){
+              mostrarBannerAtualizacao();
+            }
+          });
+        });
+      })
+      .catch(function(err){ console.warn('[SW] Registro falhou:',err); });
+  });
 })();
 `;
 
@@ -124,6 +177,9 @@ export default function Root({ children }: PropsWithChildren) {
 
         {/* Script de remoção da splash — roda após o body ser parseado */}
         <script dangerouslySetInnerHTML={{ __html: SPLASH_JS }} />
+
+        {/* Registro do Service Worker — roda após o load, não bloqueia */}
+        <script dangerouslySetInnerHTML={{ __html: SW_JS }} />
       </body>
     </html>
   );
