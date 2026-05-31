@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
@@ -65,7 +65,7 @@ jobs:
       EXPO_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwenNkanJqZWpsZW11b21wZmdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3NDg3OTUsImV4cCI6MjA5MDMyNDc5NX0.3v3kK3H5jA6fiJ-hGMGX1Xxcupy-ngplbGrpVzVeVJQ
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
@@ -139,7 +139,7 @@ jobs:
 
       - name: Checkout
         if: env.SKIP_VERCEL == 'false'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Download build artifact
         if: env.SKIP_VERCEL == 'false'
